@@ -34,6 +34,11 @@ namespace IONET.Core.Animation
         /// <summary>
         /// 
         /// </summary>
+        public bool UseSegmentScaleCompensate { get; set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public float GetFrameCount()
         {
             float frameCount = 0;

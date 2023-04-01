@@ -51,6 +51,12 @@ namespace IONET
         /// </summary>
         [Category("Vertices"), DisplayName("Optimize"), Description("Reduces number of vertices by combining duplicates")]
         public bool Optimize { get; set; } = true;
+
+        /// <summary>
+        /// Recalculates smooth normals for the mesh
+        /// </summary>
+        [Category("Materials"), DisplayName("Split Meshes by Materials"), Description("Splits meshes with multiple materials")]
+        public bool SplitMeshMaterials { get; set; } = true;
     }
 
     public class ExportSettings
@@ -94,19 +100,28 @@ namespace IONET
         /// <summary>
         /// 
         /// </summary>
+        public bool ExportAnimations { get; set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         [Category("Misc"), DisplayName("Blender Mode"), Description("Helps with blender compatibility (DAE ONLY)")]
         public bool BlenderMode { get; set; } = true;
 
         /// <summary>
         /// 
         /// </summary>
-        [Category("Anim"), DisplayName("Maya 2015 (.anim)"), Description("Helps with Maya 2015 compatibility (ANIM ONLY)")]
+        [Category("Misc"), DisplayName("Frame Rate"), Description("Controls the frame rate of the exported animation (DAE ONLY)")]
+        public float FrameRate { get; set; } = 24.0f;
+
+        /// <summary>
+        /// 
+        /// </summary>
         public bool MayaAnim2015 { get; set; } = false;
 
         /// <summary>
         /// 
         /// </summary>
-        [Category("Anim"), DisplayName("Use Radians (.anim)"), Description("Determines to use radians for maya animations. (ANIM ONLY)")]
         public bool MayaAnimUseRadians { get; set; } = true;
     }
 }

@@ -26,7 +26,8 @@ namespace IONET.Collada.Types
             if (string.IsNullOrEmpty(Value_As_String))
                 return null;
 
-            return Regex.Replace(Value_As_String.Trim(), @"\s+", " ").Split(' ').Select(e => float.Parse(e)).ToArray();
+            var en = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+            return Regex.Replace(Value_As_String.Trim(), @"\s+", " ").Split(' ').Select(e => float.Parse(e, en)).ToArray();
         }
 
         /// <summary>

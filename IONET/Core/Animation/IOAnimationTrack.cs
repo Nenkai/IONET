@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using IONET.Core.Skeleton;
 
 namespace IONET.Core.Animation
 {
@@ -27,5 +28,66 @@ namespace IONET.Core.Animation
         /// 
         /// </summary>
         public List<IOKeyFrame> KeyFrames { get; internal set; } = new List<IOKeyFrame>();
+
+        public float GetFrameValue(float frame)
+        {
+            if (KeyFrames.Count == 0) return 0;
+            if (KeyFrames.Count == 1) return KeyFrames[0].ValueF32;
+            IOKeyFrame LK = KeyFrames.First();
+            IOKeyFrame RK = KeyFrames.Last();
+
+            float Frame = GetWrapFrame(frame, PostWrap);
+            foreach (IOKeyFrame keyFrame in KeyFrames)
+            {
+                if (keyFrame.Frame <= Frame) LK = keyFrame;
+                if (keyFrame.Frame >= Frame && keyFrame.Frame < RK.Frame) RK = keyFrame;
+            }
+
+            if (LK.Frame != RK.Frame)
+            {
+                float FrameDiff = Frame - LK.Frame;
+                float Weight = FrameDiff / (RK.Frame - LK.Frame);
+                if (LK is IOKeyFrameHermite)
+                {
+                    float length = RK.Frame - LK.Frame;
+
+                    if (!(RK is IOKeyFrameHermite))
+                        RK = new IOKeyFrameHermite() { Value = RK.Value };
+
+                    IOKeyFrameHermite hermiteKeyLK = (IOKeyFrameHermite)LK;
+                    IOKeyFrameHermite hermiteKeyRK = (IOKeyFrameHermite)RK;
+
+                    return InterpolationHelper.HermiteInterpolate(Frame,
+                      hermiteKeyLK.Frame,
+                      hermiteKeyRK.Frame,
+                      hermiteKeyLK.ValueF32,
+                      hermiteKeyRK.ValueF32,
+                      hermiteKeyLK.TangentSlopeOutput * length,
+                      hermiteKeyRK.TangentSlopeInput * length);
+                }
+                else
+                    return InterpolationHelper.Lerp(LK.ValueF32, RK.ValueF32, Weight);
+            }
+            return LK.ValueF32;
+        }
+
+        private float GetWrapFrame(float frame, IOCurveWrapMode mode)
+        {
+            var lastFrame = KeyFrames.Last().Frame;
+            if (mode == IOCurveWrapMode.Constant)
+            {
+                if (frame > lastFrame)
+                    return lastFrame;
+                else
+                    return frame;
+            }
+            if (mode == IOCurveWrapMode.Cycle)
+            {
+                while (frame > lastFrame)
+                    frame -= lastFrame;
+                return frame;
+            }
+            return frame;
+        }
     }
 }

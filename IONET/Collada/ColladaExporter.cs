@@ -5,9 +5,13 @@ using IONET.Collada.Core.Scene;
 using IONET.Collada.Core.Metadata;
 using IONET.Core.Model;
 using IONET.Core.Skeleton;
+using IONET.Core.Animation;
+using IONET.Core.IOMath;
 using IONET.Collada.Core.Transform;
 using IONET.Collada.Core.Geometry;
 using IONET.Collada.Core.Data_Flow;
+using IONET.Collada.Core.Animation;
+using IONET.Collada.Core.Technique_Common;
 using IONET.Collada.Helpers;
 using System.Linq;
 using IONET.Collada.Enums;
@@ -36,6 +40,8 @@ namespace IONET.Collada
         /// <returns></returns>
         public string GetUniqueID(string id)
         {
+            id = id.Replace(" ", "_");
+
             if (!_usedIDs.Contains(id))
             {
                 _usedIDs.Add(id);
@@ -72,12 +78,17 @@ namespace IONET.Collada
             _settings = settings;
 
             _collada.Version = "1.4.1";
-            
+            _collada.Asset = new Asset();
+            _collada.Asset.Up_Axis = "Y_UP";
 
             // export materials
             foreach (var mat in scene.Materials)
                 ProcessMaterial(mat);
-
+            if (settings.ExportAnimations)
+            {
+                foreach (IOAnimation animation in scene.Animations)
+                    this.ProcessAnimation(animation);
+            }
 
             // initialize scene
             var visscene = new Visual_Scene
@@ -90,7 +101,7 @@ namespace IONET.Collada
             // export models nodes
             List<Node> nodes = new List<Node>();
             foreach(var mod in scene.Models)
-                nodes.AddRange(ProcessModel(mod));
+                nodes.AddRange(ProcessModel(scene, mod));
             visscene.Node = nodes.ToArray();
 
 
@@ -308,13 +319,13 @@ namespace IONET.Collada
         /// 
         /// </summary>
         /// <param name="model"></param>
-        private List<Node> ProcessModel(IOModel model)
+        private List<Node> ProcessModel(IOScene scene, IOModel model)
         {
             List<Node> nodes = new List<Node>();
 
             // bones
             foreach (var root in model.Skeleton.RootBones)
-                nodes.Add(ProcessSkeleton(root));
+                nodes.Add(ProcessSkeleton(scene, root));
 
             // get root bone
             IOBone rootBone = null;
@@ -333,7 +344,7 @@ namespace IONET.Collada
         /// </summary>
         /// <param name="bone"></param>
         /// <returns></returns>
-        private Node ProcessSkeleton(IOBone bone)
+        private Node ProcessSkeleton(IOScene scene, IOBone bone)
         {
             Node n = new Node()
             {
@@ -343,14 +354,31 @@ namespace IONET.Collada
                 Matrix = new Matrix[] { new Matrix() },
                 Type = Node_Type.JOINT
             };
+            if (IsNodeAnimated(scene.Animations, n.ID))
+            {
+                var pos = bone.Translation;
+                var rot = bone.RotationEuler;
+                var sca = bone.Scale;
 
-            n.Matrix[0].FromMatrix(bone.LocalTransform);
+                n.Matrix = null;
+                n.Translate = new Translate[1];
+                n.Rotate = new Rotate[3];
+                n.Scale = new Scale[1];
+
+                n.Translate[0] = new Translate() { sID = "location", Value_As_String = $"{pos.X} {pos.Y} {pos.Z}", };
+                n.Rotate[0] = new Rotate() { sID = "rotationX", Value_As_String = $"0 0 1 {MathExt.RadToDeg(rot.X)}", };
+                n.Rotate[1] = new Rotate() { sID = "rotationY", Value_As_String = $"0 1 0 {MathExt.RadToDeg(rot.Y)}", };
+                n.Rotate[2] = new Rotate() { sID = "rotationZ", Value_As_String = $"1 0 0 {MathExt.RadToDeg(rot.Z)}", };
+                n.Scale[0] = new Scale() { sID = "scale", Value_As_String = $"{sca.X} {sca.Y} {sca.Z}", };
+            }
+            else
+                n.Matrix[0].FromMatrix(bone.LocalTransform);
 
             n.node = new Node[bone.Children.Length];
 
             int childIndex = 0;
             foreach(var child in bone.Children)
-                n.node[childIndex++] = ProcessSkeleton(child);
+                n.node[childIndex++] = ProcessSkeleton(scene, child);
 
             return n;
         }
@@ -399,6 +427,12 @@ namespace IONET.Collada
                 var geom = new Instance_Geometry();
 
                 geom.URL = "#" + GenerateGeometry(mesh);
+
+                if (mesh.Transform != Matrix4x4.Identity)
+                {
+                    n.Matrix = new Matrix[] { new Matrix() };
+                    n.Matrix[0].FromMatrix(mesh.Transform);
+                }
 
                 n.Instance_Geometry = new Instance_Geometry[] { geom };
 
@@ -781,6 +815,263 @@ namespace IONET.Collada
 
             // return geometry id
             return geomID;
+        }
+
+        public bool IsNodeAnimated(List<IOAnimation> animations, string id)
+        {
+            foreach (var anim in animations)
+            {
+                if (anim.Name == id)
+                    return true;
+
+                if (IsNodeAnimated(anim.Groups, id))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void ProcessAnimation(IOAnimation anim)
+        {
+            //Allow multiple groups to be creatable from a single animation incase we want to split them (like decompsing a matrix4x4)
+            foreach (Animation processSubAnimation in ProcessSubAnimations(null, anim)[0].Animations)
+                this.AddAnimation(processSubAnimation);
+        }
+
+        private void AddAnimation(IONET.Collada.Core.Animation.Animation animation)
+        {
+            if (this._collada.Library_Animations == null)
+                this._collada.Library_Animations = new Library_Animations();
+            if (this._collada.Library_Animations.Animation == null)
+                this._collada.Library_Animations.Animation = new IONET.Collada.Core.Animation.Animation[0];
+            Array.Resize<IONET.Collada.Core.Animation.Animation>(ref this._collada.Library_Animations.Animation, this._collada.Library_Animations.Animation.Length + 1);
+            this._collada.Library_Animations.Animation[this._collada.Library_Animations.Animation.Length - 1] = animation;
+        }
+
+        private List<Animation> ProcessSubAnimations(Animation parentAnimation, IOAnimation group)
+        {
+            List<Animation> animationList = new List<Animation>();
+            foreach (IOAnimationTrack track in group.Tracks)
+            {
+                string channelTarget = this.GetChannelOutputParam(track.ChannelType);
+                //Get a unique name for the track
+                string name = this.GetUniqueID($"{group.Name}_{GetChannelTarget(track.ChannelType).Replace(".", "_")}");
+                //Create an animation to store track info
+                Animation animation = new Animation()
+                {
+                    ID = name,
+                    Animations = new Animation[0]
+                };
+                animationList.Add(animation);
+                //Sampler for determining the inputs of the track
+                Sampler sampler = new Sampler()
+                {
+                    ID = $"{name}" + "-sampler",
+                    Input = new Input_Unshared[3]
+                };
+                //Channel for determining the target of the animation
+                Channel channel = new Channel()
+                {
+                    Source = $"#{sampler.ID}",
+                    Target = $"{group.Name}/{this.GetChannelTarget(track.ChannelType)}"
+                };
+                //Setup the track data
+                float[] timeValues = new float[track.KeyFrames.Count];
+                string[] interpolationModes = new string[track.KeyFrames.Count];
+                //Get the key data
+                List<float> outputValues = new List<float>();
+                for (int f = 0; f < track.KeyFrames.Count; ++f)
+                {
+                    //Instead of frames, get the time value based on the frame rate.
+                    timeValues[f] = track.KeyFrames[f].Frame / this._settings.FrameRate;
+                    //Track types can be a 4x4 matrix (float[16]) or a single channel value
+                    if (track.KeyFrames[f].Value is float[])
+                        outputValues.AddRange((float[])track.KeyFrames[f].Value);
+                    else
+                        outputValues.Add((float)track.KeyFrames[f].Value);
+                    //Interpolation modes based on the provided key frame type
+                    if (track.KeyFrames[f] is IOKeyFrameBezier)
+                        interpolationModes[f] = "BEZIER";
+                    else if(track.KeyFrames[f] is IOKeyFrameHermite) 
+                        interpolationModes[f] = "HERMITE";
+                    else
+                        interpolationModes[f] = "LINEAR";
+                    //TODO
+                    interpolationModes[f] = "LINEAR";
+                }
+
+                //Convert rotation to degrees
+                if (track.ChannelType == IOAnimationTrackType.RotationEulerX || 
+                    track.ChannelType == IOAnimationTrackType.RotationEulerY ||
+                    track.ChannelType == IOAnimationTrackType.RotationEulerZ)
+                {
+                    for (int i = 0; i < outputValues.Count; i++)
+                        outputValues[i] = MathExt.RadToDeg(outputValues[i]);
+                }
+
+                //Inputs to link to the source data
+                List<Input_Unshared> inputs = new List<Input_Unshared>();
+                inputs.Add(new Input_Unshared() { Semantic = Input_Semantic.INPUT, source = $"#{name}-input" });
+                inputs.Add(new Input_Unshared() { Semantic = Input_Semantic.OUTPUT, source = $"#{name}-output" });
+                inputs.Add(new Input_Unshared() { Semantic = Input_Semantic.INTERPOLATION, source = $"#{name}-interpolation" });
+
+                bool hasTangents = interpolationModes.Any(x => x == "HERMITE") || 
+                                   interpolationModes.Any(x => x == "BEZIER");
+                //Tangent inputs
+                if (hasTangents) {
+                    inputs.Add(new Input_Unshared() { Semantic = Input_Semantic.IN_TANGENT, source = $"#{name}-intangent" });
+                    inputs.Add(new Input_Unshared() { Semantic = Input_Semantic.OUT_TANGENT, source = $"#{name}-outtangent" });
+                }
+                //Sources for raw data
+                List<Source> sourceList = new List<Source>();
+                sourceList.Add(CreateAnimationSource($"{name}-input", timeValues, CreateAnimParam("TIME", "float")));
+                sourceList.Add(CreateAnimationSource($"{name}-output", outputValues.ToArray(), CreateAnimParam(channelTarget, "float")));
+                sourceList.Add(CreateAnimationSource($"{name}-interpolation", interpolationModes, CreateAnimParam("INTERPOLATION", "name")));
+                //Tangent sources
+                if (hasTangents)
+                {
+                    List<float> tagentInputs = new List<float>();
+                    List<float> tangentOutputs = new List<float>();
+                    for (int index = 0; index < track.KeyFrames.Count; ++index)
+                    {
+                        if (interpolationModes[index] == "BEZIER")
+                        {
+                            IOKeyFrameBezier keyFrame = track.KeyFrames[index] as IOKeyFrameBezier;
+                            tagentInputs.Add(keyFrame.TangentInputX);
+                            tagentInputs.Add(keyFrame.TangentInputY);
+                            tangentOutputs.Add(keyFrame.TangentOutputX);
+                            tangentOutputs.Add(keyFrame.TangentOutputY);
+                        }
+                        if (interpolationModes[index] == "HERMITE")
+                        {
+                            IOKeyFrameHermite keyFrame = track.KeyFrames[index] as IOKeyFrameHermite;
+                            tagentInputs.Add(keyFrame.TangentSlopeInput);
+                            tangentOutputs.Add(keyFrame.TangentSlopeOutput);
+                            tagentInputs.Add(0.0f);
+                            tangentOutputs.Add(0.0f);
+                        }
+                    }
+                    Param[] parameters = new Param[2]
+                    {
+                        CreateAnimParam("X", "float"), CreateAnimParam("Y", "float")
+                    };
+                    sourceList.Add(CreateAnimationSource($"{name}-intangent", tagentInputs.ToArray(), parameters));
+                    sourceList.Add(CreateAnimationSource($"{name}-outtangent", tangentOutputs.ToArray(), parameters));
+                }
+                sampler.Input = inputs.ToArray();
+                animation.Sampler = new Sampler[1] { sampler };
+                animation.Channel = new Channel[1] { channel };
+                animation.Source = sourceList.ToArray();
+            }
+
+            string groupName = this.GetUniqueID(group.Name);
+            if (parentAnimation != null)
+                groupName = $"{GetUniqueID(parentAnimation.ID)}__{group.Name}";
+
+            if (group.Groups.Count > 0)
+            {
+                Animation animGroup = new Animation()
+                {
+                    ID = groupName,
+                    Name = group.Name,
+                    Animations = animationList.ToArray()
+                };
+
+                foreach (IOAnimation gr in group.Groups)
+                    animationList.AddRange(ProcessSubAnimations(animGroup, gr));
+                animGroup.Animations = animationList.ToArray();
+
+                return new List<Animation>() { animGroup };
+            }
+            else
+                return animationList;
+        }
+
+        private static Source CreateAnimationSource<T>(string id, T[] value, params Param[] parameters)
+        {
+            Source source = new Source() { ID = id };
+            uint stride = (uint)parameters.Length;
+            if (parameters[0].Type == "name")
+            {
+                source.Name_Array = new Name_Array()
+                {
+                    Count = value.Length,
+                    ID = $"{id}-array",
+                    Value_Pre_Parse = string.Join(" ", value as string[])
+                };
+            }
+            if (parameters[0].Type == "float")
+            {
+                source.Float_Array = new Float_Array()
+                {
+                    Count = value.Length,
+                    ID = $"{id}-array",
+                    Value_As_String = string.Join(" ", value as float[])
+                };
+            }
+            if (parameters[0].Type == "transform")
+            {
+                stride = 16;
+                source.Float_Array = new Float_Array()
+                {
+                    Count = value.Length,
+                    ID = $"{id}-array",
+                    Value_As_String = string.Join(" ", value as float[])
+                };
+            }
+            source.Technique_Common = new Technique_Common_Source()
+            {
+                Accessor = new Accessor()
+                {
+                    Count = (uint)value.Length,
+                    Source = "#" + id + "-array",
+                    Param = parameters,
+                    Stride = stride
+                }
+            };
+            return source;
+        }
+
+        private Param CreateAnimParam(string name, string type) {
+            return new Param() { Name = name, Type = type };
+        }
+
+        private string GetChannelTarget(IOAnimationTrackType type)
+        {
+            switch (type)
+            {
+                case IOAnimationTrackType.PositionX: return "location.X";
+                case IOAnimationTrackType.PositionY: return "location.Y";
+                case IOAnimationTrackType.PositionZ: return "location.Z";
+                case IOAnimationTrackType.RotationEulerX: return "rotationX.ANGLE";
+                case IOAnimationTrackType.RotationEulerY: return "rotationY.ANGLE";
+                case IOAnimationTrackType.RotationEulerZ: return "rotationZ.ANGLE";
+                case IOAnimationTrackType.ScaleX: return "scale.X";
+                case IOAnimationTrackType.ScaleY: return "scale.Y";
+                case IOAnimationTrackType.ScaleZ: return "scale.Z";
+                case IOAnimationTrackType.TransformMatrix4x4: return "transform";
+                default:
+                    throw new Exception(string.Format("Unsupported track type {0}.", (object)type));
+            }
+        }
+
+        private string GetChannelOutputParam(IOAnimationTrackType type)
+        {
+            switch (type)
+            {
+                case IOAnimationTrackType.PositionX: return "X";
+                case IOAnimationTrackType.PositionY: return "Y";
+                case IOAnimationTrackType.PositionZ: return "Z";
+                case IOAnimationTrackType.RotationEulerX: return "ANGLE";
+                case IOAnimationTrackType.RotationEulerY: return "ANGLE";
+                case IOAnimationTrackType.RotationEulerZ: return "ANGLE";
+                case IOAnimationTrackType.ScaleX: return "X";
+                case IOAnimationTrackType.ScaleY: return "Y";
+                case IOAnimationTrackType.ScaleZ: return "Z";
+                case IOAnimationTrackType.TransformMatrix4x4: return "TRANSFORM";
+                default:
+                    throw new Exception(string.Format("Unsupported track type {0}.", (object)type));
+            }
         }
 
         /// <summary>

@@ -415,34 +415,35 @@ namespace IONET.MayaAnim
 
                 foreach (var track in group.Tracks)
                 {
+                    List<IOKeyFrame> keyFrames = track.KeyFrames;
                     switch (track.ChannelType)
                     {
                         case IOAnimationTrackType.PositionX:
-                            AddAnimData(settings, animBone, track, ControlType.translate, TrackType.translateX);
+                            AddAnimData(settings, animBone, track, keyFrames, ControlType.translate, TrackType.translateX);
                             break;
                         case IOAnimationTrackType.PositionY:
-                            AddAnimData(settings, animBone, track, ControlType.translate, TrackType.translateY);
+                            AddAnimData(settings, animBone, track, keyFrames, ControlType.translate, TrackType.translateY);
                             break;
                         case IOAnimationTrackType.PositionZ:
-                            AddAnimData(settings, animBone, track, ControlType.translate, TrackType.translateZ);
+                            AddAnimData(settings, animBone, track, keyFrames, ControlType.translate, TrackType.translateZ);
                             break;
                         case IOAnimationTrackType.RotationEulerX:
-                            AddAnimData(settings, animBone, track, ControlType.rotate, TrackType.rotateX);
+                            AddAnimData(settings, animBone, track, keyFrames, ControlType.rotate, TrackType.rotateX);
                             break;
                         case IOAnimationTrackType.RotationEulerY:
-                            AddAnimData(settings, animBone, track, ControlType.rotate, TrackType.rotateY);
+                            AddAnimData(settings, animBone, track, keyFrames, ControlType.rotate, TrackType.rotateY);
                             break;
                         case IOAnimationTrackType.RotationEulerZ:
-                            AddAnimData(settings, animBone, track, ControlType.rotate, TrackType.rotateZ);
+                            AddAnimData(settings, animBone, track, keyFrames, ControlType.rotate, TrackType.rotateZ);
                             break;
                         case IOAnimationTrackType.ScaleX:
-                            AddAnimData(settings, animBone, track, ControlType.scale, TrackType.scaleX);
+                            AddAnimData(settings, animBone, track, keyFrames, ControlType.scale, TrackType.scaleX);
                             break;
                         case IOAnimationTrackType.ScaleY:
-                            AddAnimData(settings, animBone, track, ControlType.scale, TrackType.scaleY);
+                            AddAnimData(settings, animBone, track, keyFrames, ControlType.scale, TrackType.scaleY);
                             break;
                         case IOAnimationTrackType.ScaleZ:
-                            AddAnimData(settings, animBone, track, ControlType.scale, TrackType.scaleZ);
+                            AddAnimData(settings, animBone, track, keyFrames, ControlType.scale, TrackType.scaleZ);
                             break;
                     }
                 }
@@ -450,7 +451,7 @@ namespace IONET.MayaAnim
             return anim;
         }
 
-        static void AddAnimData(ExportSettings settings, AnimBone animBone, IOAnimationTrack track, ControlType ctype, TrackType ttype)
+        static void AddAnimData(ExportSettings settings, AnimBone animBone, IOAnimationTrack track, List<IOKeyFrame> keyFrames, ControlType ctype, TrackType ttype)
         {
             AnimData d = new AnimData();
             d.controlType = ctype;
@@ -458,28 +459,28 @@ namespace IONET.MayaAnim
             d.preInfinity = CurveWrapModes[track.PreWrap];
             d.postInfinity = CurveWrapModes[track.PostWrap];
             //Check if any tangents include weights.
-            d.weighted = track.KeyFrames.Any(x => x is IOKeyFrameHermite && ((IOKeyFrameHermite)x).IsWeighted);
+            d.weighted = keyFrames.Any(x => x is IOKeyFrameHermite && ((IOKeyFrameHermite)x).IsWeighted);
 
             bool isAngle = ctype == ControlType.rotate;
             if (isAngle)
                 d.output = OutputType.angular;
 
-            float value = track.KeyFrames.Count > 0 ? (float)track.KeyFrames[0].Value : 0;
+            float value = keyFrames.Count > 0 ? keyFrames[0].ValueF32 : 0;
 
             bool IsConstant = true;
-            foreach (var key in track.KeyFrames)
+            foreach (var key in keyFrames)
             {
-                if ((float)key.Value != value) {
+                if ((float)key.ValueF32 != value) {
                     IsConstant = false;
                     break;
                 }
             }
-            foreach (var key in track.KeyFrames)
+            foreach (var key in keyFrames)
             {
                 AnimKey animKey = new AnimKey()
                 {
                     input = key.Frame + 1,
-                    output = isAngle ? GetAngle(settings, (float)key.Value) : (float)key.Value,
+                    output = isAngle ? GetAngle(settings, key.ValueF32) : key.ValueF32,
                 };
                 if (key is IOKeyFrameHermite)
                 {

@@ -36,6 +36,11 @@ namespace IONET.Core.Model
         /// <summary>
         /// 
         /// </summary>
+        public ushort Attribute { get; set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public void ToTriangles(IOMesh parentMesh)
         {
             switch (PrimitiveType)

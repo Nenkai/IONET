@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using System.Text.RegularExpressions;
-using System.Globalization;
 
 namespace IONET.Wavefront
 {
@@ -27,6 +26,8 @@ namespace IONET.Wavefront
         /// <returns></returns>
         public IOScene GetScene(string filePath)
         {
+            var en = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+
             // create scene and model
             IOScene scene = new IOScene();
 
@@ -50,37 +51,29 @@ namespace IONET.Wavefront
                 var matNam = "";
                 Dictionary<IOPrimitive, List<int[]>> polygons = new Dictionary<IOPrimitive, List<int[]>>();
 
-                var enusculture = new CultureInfo("en-US");
-                var prevCultureInfo = CultureInfo.CurrentCulture;
-
-                CultureInfo.CurrentCulture = enusculture;
-
                 while (!r.EndOfStream)
                 {
-                    string line = r.ReadLine();
-                    line = line.Replace(",", ".");
-
-                    var args = Regex.Replace(line.Trim(), @"\s+", " ").Split(' ');
+                    var args = Regex.Replace(r.ReadLine().Trim(), @"\s+", " ").Split(' ');
                     
                     if (args.Length > 0)
                         switch (args[0])
                         {
                             case "v":
                                 v.Add(new Vector3(
-                                    args.Length > 1 ? float.Parse(args[1]) : 0,
-                                    args.Length > 2 ? float.Parse(args[2]) : 0,
-                                    args.Length > 3 ? float.Parse(args[3]) : 0));
+                                    args.Length > 1 ? float.Parse(args[1], en) : 0,
+                                    args.Length > 2 ? float.Parse(args[2], en) : 0,
+                                    args.Length > 3 ? float.Parse(args[3], en) : 0));
                                 break;
                             case "vt":
                                 vt.Add(new Vector2(
-                                    args.Length > 1 ? float.Parse(args[1]) : 0,
-                                    args.Length > 2 ? float.Parse(args[2]) : 0));
+                                    args.Length > 1 ? float.Parse(args[1], en) : 0,
+                                    args.Length > 2 ? float.Parse(args[2], en) : 0));
                                 break;
                             case "vn":
                                 vn.Add(new Vector3(
-                                    args.Length > 1 ? float.Parse(args[1]) : 0,
-                                    args.Length > 2 ? float.Parse(args[2]) : 0,
-                                    args.Length > 3 ? float.Parse(args[3]) : 0));
+                                    args.Length > 1 ? float.Parse(args[1], en) : 0,
+                                    args.Length > 2 ? float.Parse(args[2], en) : 0,
+                                    args.Length > 3 ? float.Parse(args[3], en) : 0));
                                 break;
                             case "f":
                                 var faces = ParseFaces(args);
@@ -135,9 +128,6 @@ namespace IONET.Wavefront
                         }
                 }
 
-                //Reset back
-                CultureInfo.CurrentCulture = prevCultureInfo;
-
                 objects.Add(new Tuple<string, string, Dictionary<IOPrimitive, List<int[]>>>(objName, matNam, polygons));
 
                 // generate model
@@ -169,17 +159,14 @@ namespace IONET.Wavefront
                         for(int i = 0; i < p.Value.Count; i++)
                         {
                             var face = p.Value[i];
-
-                            //Attribute face index is based on the order they are written in
-                            //Normal index shifts by 1 if using tex coords
-                            int normalIndex = vt.Count > 0 ? 2 : 1; 
+                            int normalIndex = vt.Count == 0 ? 1 : 2;
 
                             IOVertex vert = new IOVertex()
                             {
                                 Position = face[0] != -1 ? v[face[0]] : Vector3.Zero,
                                 Normal = face[normalIndex] != -1 ? vn[face[normalIndex]] : Vector3.Zero,
                             };
-                            if(face[1] != -1)
+                            if(face[1] != -1 && vt.Count > 0)
                                 vert.UVs.Add(vt[face[1]]);
 
                             poly.Indicies.Add(mesh.Vertices.Count);
@@ -229,21 +216,16 @@ namespace IONET.Wavefront
         /// <param name="filePath"></param>
         private void LoadMaterialLibrary(IOScene scene, string filePath)
         {
+            var en = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+
             using (FileStream stream = new FileStream(filePath, FileMode.Open))
             using (StreamReader r = new StreamReader(stream))
             {
                 IOMaterial currentMaterial = new IOMaterial();
 
-                var enusculture = new CultureInfo("en-US");
-                var prevCultureInfo = CultureInfo.CurrentCulture;
-                CultureInfo.CurrentCulture = enusculture;
-
                 while (!r.EndOfStream)
                 {
-                    string line = r.ReadLine();
-                    line = line.Replace(",", ".");
-
-                    var args = Regex.Replace(line.Trim(), @"\s+", " ").Split(' ');
+                    var args = Regex.Replace(r.ReadLine().Trim(), @"\s+", " ").Split(' ');
 
                     if (args.Length == 0)
                         continue;
@@ -258,22 +240,22 @@ namespace IONET.Wavefront
                             scene.Materials.Add(currentMaterial);
                             break;
                         case "Ka":
-                            currentMaterial.AmbientColor = new Vector4(float.Parse(args[1]), float.Parse(args[2]), float.Parse(args[3]), 1);
+                            currentMaterial.AmbientColor = new Vector4(float.Parse(args[1], en), float.Parse(args[2], en), float.Parse(args[3], en), 1);
                             break;
                         case "Kd":
-                            currentMaterial.DiffuseColor = new Vector4(float.Parse(args[1]), float.Parse(args[2]), float.Parse(args[3]), 1);
+                            currentMaterial.DiffuseColor = new Vector4(float.Parse(args[1], en), float.Parse(args[2], en), float.Parse(args[3], en), 1);
                             break;
                         case "Ks":
-                            currentMaterial.SpecularColor = new Vector4(float.Parse(args[1]), float.Parse(args[2]), float.Parse(args[3]), 1);
+                            currentMaterial.SpecularColor = new Vector4(float.Parse(args[1], en), float.Parse(args[2], en), float.Parse(args[3], en), 1);
                             break;
                         case "Ns":
-                            currentMaterial.Shininess = float.Parse(args[1]);
+                            currentMaterial.Shininess = float.Parse(args[1], en);
                             break;
                         case "d":
-                            currentMaterial.Alpha = float.Parse(args[1]);
+                            currentMaterial.Alpha = float.Parse(args[1], en);
                             break;
                         case "Tr":
-                            currentMaterial.Alpha = 1 - float.Parse(args[1]);
+                            currentMaterial.Alpha = 1 - float.Parse(args[1], en);
                             break;
                         case "map_Ka":
                             currentMaterial.AmbientMap = new IOTexture()
@@ -298,9 +280,6 @@ namespace IONET.Wavefront
                             break;
                     }
                 }
-
-                //Reset back
-                CultureInfo.CurrentCulture = prevCultureInfo;
             }
         }
 

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace IONET.Core.Animation
 {
-    public class IOKeyFrame
+    public class IOKeyFrame : ICloneable
     {
         /// <summary>
         /// 
@@ -22,6 +22,22 @@ namespace IONET.Core.Animation
         /// 
         /// </summary>
         public object Value { get; set; }
+
+        public float ValueF32
+        {
+            get { return (float)Value; }
+            set { Value = value; }
+        }
+
+        public virtual object Clone()
+        {
+            return new IOKeyFrame()
+            {
+                Frame = this.Frame,
+                Time = this.Time,
+                Value = this.Value,
+            };
+        }
     }
 
     public class IOKeyFrameHermite : IOKeyFrame
@@ -57,6 +73,20 @@ namespace IONET.Core.Animation
                 Value = bezier.Value,
             };
         }
+
+        public override object Clone()
+        {
+            return new IOKeyFrameHermite()
+            {
+                Frame = this.Frame,
+                Time = this.Time,
+                Value = this.Value,
+                TangentSlopeInput = this.TangentSlopeInput,
+                TangentSlopeOutput = this.TangentSlopeOutput,
+                TangentWeightInput = this.TangentWeightInput,
+                TangentWeightOutput = this.TangentWeightOutput,
+            };
+        }
     }
 
     public class IOKeyFrameBezier : IOKeyFrame
@@ -80,5 +110,19 @@ namespace IONET.Core.Animation
         /// 
         /// </summary>
         public float TangentOutputY { get; set; }
+
+        public override object Clone()
+        {
+            return new IOKeyFrameBezier()
+            {
+                Frame = this.Frame,
+                Time = this.Time,
+                Value = this.Value,
+                TangentInputX = this.TangentInputX,
+                TangentInputY = this.TangentInputY,
+                TangentOutputX = this.TangentOutputX,
+                TangentOutputY = this.TangentOutputY,
+            };
+        }
     }
 }

@@ -4,9 +4,13 @@ using IONET.Fbx;
 using IONET.SMD;
 using IONET.Wavefront;
 using IONET.MayaAnim;
+using IONET.Core.Model;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Collections.Generic;
+using System.Threading;
+using System.Globalization;
 
 namespace IONET
 {
@@ -90,12 +94,31 @@ namespace IONET
         /// <returns></returns>
         public static IOScene LoadScene(string filePath, ImportSettings settings)
         {
-            foreach(var l in SceneLoaders)
+            string folder = Path.GetDirectoryName(filePath);
+            foreach (var l in SceneLoaders)
                 if (l.Verify(filePath))
                 {
                     var scene = l.GetScene(filePath);
+                    System.Console.WriteLine("Loaded scene!");
 
                     // apply post processing
+                    foreach (var material in scene.Materials)
+                    {
+                        void SetupPath(Core.Model.IOTexture texture)
+                        {
+                            if (texture == null || File.Exists(texture.FilePath))
+                                return;
+
+                            if (File.Exists($"{folder}//{texture.FilePath}"))
+                                texture.FilePath = $"{folder}//{texture.FilePath}";
+                        };
+
+                        //Apply absoulte paths
+                        SetupPath(material.DiffuseMap);
+                        SetupPath(material.AmbientMap);
+                        SetupPath(material.EmissionMap);
+                        SetupPath(material.ReflectiveMap);
+                    }
                     foreach (var model in scene.Models)
                     {
                         // smooth normals
@@ -151,8 +174,25 @@ namespace IONET
                                 m.GenerateTangentsAndBitangents();
 
                             // reset envelopes
-                            foreach (var v in m.Vertices)
-                                v.ResetEnvelope(model.Skeleton);
+                           // foreach (var v in m.Vertices)
+                            //    v.ResetEnvelope(model.Skeleton);
+                        }
+                        //Split materials
+                        if (settings.SplitMeshMaterials)
+                        {
+                            List<IOMesh> meshes = new List<IOMesh>();
+                            List<int> removeIndices = new List<int>();
+
+                            for (int i = 0; i < model.Meshes.Count; i++)
+                            {
+                                if (model.Meshes[i].Polygons.Count == 1)
+                                    continue;
+
+                                var splitMeshes = model.Meshes[i].SplitByMaterial();
+                                meshes.AddRange(splitMeshes);
+                            }
+                            model.Meshes.AddRange(meshes);
+                            meshes.Clear();
                         }
                     }
 
@@ -169,6 +209,9 @@ namespace IONET
         /// <param name="filePath"></param>
         public static void ExportScene(IOScene scene, string filePath, ExportSettings settings = null)
         {
+            var current = Thread.CurrentThread.CurrentCulture;
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
+
             var ext = Path.GetExtension(filePath).ToLower();
 
             if (settings == null)
@@ -230,7 +273,9 @@ namespace IONET
                         l.ExportScene(scene, filePath, settings);
                         break;
                     }
+
+            Thread.CurrentThread.CurrentCulture = current;
         }
-        
+
     }
 }

@@ -16,7 +16,12 @@ namespace IONET.Core.Model
         /// 
         /// </summary>
         public string Name { get; set; } = "Mesh";
-        
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public Matrix4x4 Transform { get; set; } = Matrix4x4.Identity;
+
         /// <summary>
         /// 
         /// </summary>        
@@ -152,6 +157,56 @@ namespace IONET.Core.Model
             Vertices = newVertices;
         }
 
+        public List<IOMesh> SplitByMaterial()
+        {
+            if (Polygons.Count == 0)
+                return new List<IOMesh>();
+
+            List<IOMesh> meshes = new List<IOMesh>();
+
+            // remap polygon indices
+            for (int j = 0; j < Polygons.Count; j++)
+            {
+                //Keep existing base mesh. Split polygon groups if materials are unique
+                if (j == 0)
+                    continue;
+
+                var p = Polygons[j];
+
+                IOMesh mesh = new IOMesh();
+                mesh.Name = $"{Name}_{j}";
+                meshes.Add(mesh);
+
+                IOPolygon poly = new IOPolygon();
+                poly.Indicies = new List<int>();
+                poly.Attribute = p.Attribute;
+                poly.MaterialName = p.MaterialName;
+                poly.PrimitiveType = p.PrimitiveType;
+                mesh.Polygons.Add(poly);
+
+                Dictionary<IOVertex, int> remapVertex = new Dictionary<IOVertex, int>();
+                for (int i = 0; i < p.Indicies.Count; i++)
+                {
+                    var v = Vertices[p.Indicies[i]];
+                    if (!remapVertex.ContainsKey(v))
+                    {
+                        remapVertex.Add(v, mesh.Vertices.Count);
+                        mesh.Vertices.Add(v);
+                    }
+                    poly.Indicies.Add(remapVertex[v]);
+                }
+                remapVertex.Clear();
+            }
+
+            //Clear out all but the first polygons and vertices
+            var polyF = Polygons.FirstOrDefault();
+            Polygons.Clear();
+            Polygons.Add(polyF);
+
+            Optimize();
+
+            return meshes;
+        }
 
         /// <summary>
         /// Generates Tangents and Bitangents for the vertices

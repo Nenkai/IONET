@@ -81,7 +81,7 @@ namespace IONET.Wavefront
                         w.WriteLine($"o {mesh.Name}");
                         foreach (var poly in mesh.Polygons)
                         {
-                            w.WriteLine($"g polygon_{mesh.Polygons.IndexOf(poly)}");
+                            //w.WriteLine($"g polygon_{mesh.Polygons.IndexOf(poly)}");
 
                             w.WriteLine($"usemtl {poly.MaterialName}");
                             

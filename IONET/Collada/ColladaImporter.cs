@@ -24,6 +24,8 @@ namespace IONET.Collada
         /// </summary>
         private Collada _collada;
 
+        private Matrix4x4 GlobalBoneTransform = Matrix4x4.Identity;
+
         /// <summary>
         /// 
         /// </summary>
@@ -52,7 +54,7 @@ namespace IONET.Collada
                 return scene;
 
             // load material library's to scene
-            if(_collada.Library_Materials != null)
+            if (_collada.Library_Materials != null)
             {
                 foreach(var mat in _collada.Library_Materials.Material)
                 {
@@ -80,16 +82,36 @@ namespace IONET.Collada
                                 skelIDs.Add(j);
                 }
 
+                GlobalBoneTransform = Matrix4x4.Identity;
+
                 // load nodes
                 foreach (var v in colscene.Node)
                 {
-                    LoadNodes(v, null, model, skelIDs);
+                    LoadNodes(v, null, model, skelIDs, Matrix4x4.Identity);
                 }
+
+                if (GlobalBoneTransform != Matrix4x4.Identity)
+                    model.Transform(GlobalBoneTransform);
 
                 // add model
                 scene.Models.Add(model);
             }
-            
+
+            //Convert up axis from Z up to Y up
+            if (_collada.Asset != null && _collada.Asset.Up_Axis == "Z_UP")
+            {
+                var matrix = Matrix4x4.CreateRotationX(IONET.Core.IOMath.MathExt.DegToRad(-90));
+                foreach (var model in scene.Models) {
+                    foreach (var mesh in model.Meshes) {
+                        mesh.TransformVertices(matrix);
+                    }
+                }
+                foreach (var model in scene.Models)
+                {
+                    foreach (var bone in model.Skeleton.RootBones)
+                        bone.WorldTransform *= matrix;
+                }
+            }
 
             // cleanup
             _collada = null;
@@ -140,7 +162,7 @@ namespace IONET.Collada
         /// </summary>
         /// <param name="n"></param>
         /// <param name="bones"></param>
-        private IOBone LoadNodes(Node n, IOBone parent, IOModel model, List<string> skeletonIds)
+        private IOBone LoadNodes(Node n, IOBone parent, IOModel model, List<string> skeletonIds, Matrix4x4 rootTransform)
         {
             // create bone to represent node
             IOBone bone = new IOBone()
@@ -193,14 +215,20 @@ namespace IONET.Collada
                     }
                 }
 
+                float deg2Rad = (float)System.Math.PI / 180.0f;
+
                 // create transform
                 bone.LocalTransform = Matrix4x4.CreateTranslation(position) *
-                    Matrix4x4.CreateFromAxisAngle(new Vector3(rz.X, rz.Y, rz.Z), rz.W) *
-                    Matrix4x4.CreateFromAxisAngle(new Vector3(ry.X, ry.Y, ry.Z), ry.W) *
-                    Matrix4x4.CreateFromAxisAngle(new Vector3(rx.X, rx.Y, rx.Z), rx.W) *
+                    (Matrix4x4.CreateFromAxisAngle(new Vector3(rz.X, rz.Y, rz.Z), rz.W * deg2Rad) *
+                    Matrix4x4.CreateFromAxisAngle(new Vector3(ry.X, ry.Y, ry.Z), ry.W * deg2Rad) *
+                    Matrix4x4.CreateFromAxisAngle(new Vector3(rx.X, rx.Y, rx.Z), rx.W * deg2Rad)) *
                     Matrix4x4.CreateScale(scale);
             }
 
+            var parentTransform = Matrix4x4.Identity;
+
+            if (n.Type == Node_Type.NODE && n.Matrix != null && n.Matrix.Length >= 0)
+                parentTransform *= n.Matrix[0].ToMatrix();
 
             // add this node to parent
             if (parent != null)
@@ -209,7 +237,7 @@ namespace IONET.Collada
             // load children
             if (n.node != null)
                 foreach (var v in n.node)
-                    LoadNodes(v, bone, model, skeletonIds);
+                    LoadNodes(v, bone, model, skeletonIds, parentTransform * rootTransform);
 
 
             // load instanced geometry
@@ -221,6 +249,14 @@ namespace IONET.Collada
                     geom.TransformVertices(bone.WorldTransform);
                     geom.ParentBone = bone;
                     model.Meshes.Add(geom);
+
+                    //Bind materials
+                    if (g.Bind_Material?.Length > 0) {
+                        var materialInstance = g.Bind_Material[0].Technique_Common.Instance_Material[0];
+                        foreach (var poly in geom.Polygons) {
+                            poly.MaterialName = materialInstance.Target.Replace("#", "");
+                        }
+                    }
                 }
             }
 
@@ -233,26 +269,72 @@ namespace IONET.Collada
                     geom.TransformVertices(bone.WorldTransform);
                     geom.ParentBone = bone;
                     model.Meshes.Add(geom);
+
+                    //Bind materials
+                    if (c.Bind_Material?.Length > 0)
+                    {
+                        var materialInstance = c.Bind_Material[0].Technique_Common.Instance_Material[0];
+                        foreach (var poly in geom.Polygons) {
+                            poly.MaterialName = materialInstance.Target.Replace("#", "");
+                        }
+                    }
                 }
             }
 
             // detect skeleton
-            if ((!string.IsNullOrEmpty(bone.Name) && skeletonIds.Contains(bone.Name)) ||
-                (n.Type == Node_Type.JOINT && parent == null) ||
-                (n.Instance_Camera == null && 
-                n.Instance_Controller == null &&
-                n.Instance_Geometry == null &&
-                n.Instance_Light == null && 
-                n.Instance_Node == null && 
-                parent == null && 
-                n.node != null && 
+            if (IsSkeletonRoot(model, n, bone, skeletonIds) ||
+                (parent == null &&
+                n.node != null &&
                 n.node.Length > 0))
             {
+                if (parent != null)
+                    GlobalBoneTransform = parent.WorldTransform;
+                bone.Parent = null;
                 model.Skeleton.RootBones.Add(bone);
             }
 
             // complete
             return bone;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        private bool IsSkeletonRoot(IOModel m, Node n, IOBone bone, List<string> skeletonIds)
+        {
+            //check none of parents are joints
+            var parent = bone.Parent;
+            while (parent != null)
+            {
+                if (m.Skeleton.RootBones.Contains(parent))
+                    return false;
+
+                parent = parent.Parent;
+            }
+
+            //// check if any descendents have a joint node
+
+            bool hasDescendent = false;
+
+            Queue<Node> nodes = new Queue<Node>();
+            nodes.Enqueue(n);
+            while (nodes.Count > 0)
+            {
+                var node = nodes.Dequeue();
+                if (node.Type == Node_Type.JOINT || skeletonIds.Contains(node.Name))
+                {
+                    hasDescendent = true;
+                    break;
+                }
+
+                if (node.node != null)
+                    foreach (var c in node.node)
+                        nodes.Enqueue(c);
+            }
+
+            // if both true then this is a skeleton root
+            return hasDescendent;
         }
 
         /// <summary>
@@ -383,9 +465,43 @@ namespace IONET.Collada
                 foreach (var src in geom.Mesh.Source)
                     srcs.AddSource(src);
 
-            
+
             // load geomtry meshes
-            if(geom.Mesh.Triangles != null)
+            if (geom.Mesh.Polylist != null)
+            {
+                foreach (var tri in geom.Mesh.Polylist)
+                {
+                    var stride = tri.Input.Max(e => e.Offset) + 1;
+                    var poly = new IOPolygon()
+                    {
+                        PrimitiveType = IOPrimitive.TRIANGLE,
+                        MaterialName = tri.Material
+                    };
+
+                    var p = tri.P.GetValues();
+
+                    for (int i = 0; i < tri.Count * 3; i++)
+                    {
+                        IOVertex vertex = new IOVertex();
+
+                        for (int j = 0; j < tri.Input.Length; j++)
+                        {
+                            var input = tri.Input[j];
+
+                            var index = p[i * stride + input.Offset];
+
+                            ProcessInput(input.Semantic, input.source, input.Set, vertex, geom.Mesh.Vertices, index, srcs, vertexEnvelopes);
+                        }
+
+                        poly.Indicies.Add(mesh.Vertices.Count);
+                        mesh.Vertices.Add(vertex);
+                    }
+
+                    mesh.Polygons.Add(poly);
+                }
+            }
+
+            if (geom.Mesh.Triangles != null)
             {
                 foreach (var tri in geom.Mesh.Triangles)
                 {
@@ -500,10 +616,10 @@ namespace IONET.Collada
                     break;
                 case Input_Semantic.COLOR:
                     vertex.SetColor(
-                        values.Length > 0 ? values[0] : 0,
-                        values.Length > 1 ? values[1] : 0,
-                        values.Length > 2 ? values[2] : 0,
-                        values.Length > 3 ? values[3] : 0,
+                        values.Length > 0 ? values[0] : 1.0f,
+                        values.Length > 1 ? values[1] : 1.0f,
+                        values.Length > 2 ? values[2] : 1.0f,
+                        values.Length > 3 ? values[3] : 1.0f,
                         set);
                     break;
             }
@@ -680,7 +796,10 @@ namespace IONET.Collada
             if (type.Color != null)
             {
                 var c = type.Color.GetValues();
-                color = new Vector4(c[0], c[1], c[2], c[3]);
+                if (c.Length == 4)
+                    color = new Vector4(c[0], c[1], c[2], c[3]);
+                if (c.Length == 3)
+                    color = new Vector4(c[0], c[1], c[2],  1.0f);
             }
 
             if (type.Texture != null)
@@ -719,11 +838,14 @@ namespace IONET.Collada
                 }
 
                 // lookup image from image library
-                var image = _collada.Library_Images.Image.FirstOrDefault(e => e.ID == texid);
-                if (image != null)
+                if (_collada.Library_Images?.Image != null)
                 {
-                    texture.Name = image.Name;
-                    texture.FilePath = string.IsNullOrEmpty(image.Init_From.Ref) ? image.Init_From.Value : image.Init_From.Ref;
+                    var image = _collada.Library_Images.Image.FirstOrDefault(e => e.ID == texid);
+                    if (image != null)
+                    {
+                        texture.Name = image.Name;
+                        texture.FilePath = string.IsNullOrEmpty(image.Init_From.Ref) ? image.Init_From.Value : image.Init_From.Ref;
+                    }
                 }
             }
 
