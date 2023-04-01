@@ -63,6 +63,8 @@ namespace IONET.Core
 
             return optimized;
         }
+        public void Normalize() => Normalize(this.Weights);
+        public void NormalizeByteType() => NormalizeByteType(this.Weights);
 
         /// <summary>
         /// Makes sure all weights add up to 1.0f.
@@ -79,6 +81,46 @@ namespace IONET.Core
                 foreach (IOBoneWeight b in weights)
                     if (b != null)
                         b.Weight = (float)Math.Round(b.Weight / denom, weightDecimalPlaces);
+        }
+        public void LimtSkinCount(int max)
+        {
+            if (this.Weights.Count <= max)
+                return;
+            List<IOBoneWeight> ioBoneWeightList = new List<IOBoneWeight>();
+            for (int index = 0; index < this.Weights.Count; ++index)
+            {
+                if (index >= max)
+                    ioBoneWeightList.Add(this.Weights[index]);
+            }
+            foreach (IOBoneWeight ioBoneWeight in ioBoneWeightList)
+                this.Weights.Remove(ioBoneWeight);
+            IOEnvelope.Normalize((IEnumerable<IOBoneWeight>)this.Weights);
+        }
+
+        private static void NormalizeByteType(IEnumerable<IOBoneWeight> weights)
+        {
+            float num1 = 0.003921569f;
+            int num2 = (int)byte.MaxValue;
+            List<IOBoneWeight> list = weights.ToList<IOBoneWeight>();
+            int num3 = 0;
+            foreach (IOBoneWeight weight in weights)
+            {
+                ++num3;
+                if (weight != null)
+                {
+                    int num4 = (int)Math.Round((double)weight.Weight / (double)num1, 2);
+                    if (list.Count == num3)
+                        num4 = num2;
+                    if (num4 >= num2)
+                    {
+                        num4 = num2;
+                        num2 = 0;
+                    }
+                    else
+                        num2 -= num4;
+                    weight.Weight = (float)num4 * num1;
+                }
+            }
         }
     }
 

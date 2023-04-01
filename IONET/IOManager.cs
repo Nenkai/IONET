@@ -143,6 +143,8 @@ namespace IONET
                                     // weight limit
                                     if (settings.WeightLimit)
                                         v.Envelope.Optimize(settings.WeightLimitAmt);
+                                    if (settings.WeightNormalize)
+                                        v.Envelope.Normalize();
 
                                     // flip uvs
                                     if (settings.FlipUVs)

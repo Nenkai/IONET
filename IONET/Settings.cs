@@ -10,6 +10,8 @@ namespace IONET
         [Category("Vertices"), DisplayName("Smooth Normals"), Description("Recalcuates smooth normals")]
         public bool SmoothNormals { get; set; } = false;
 
+        public bool WeightNormalize { get; set; } = false;  
+
         /// <summary>
         /// Generates Tangents and Binormals for the vertices
         /// </summary>

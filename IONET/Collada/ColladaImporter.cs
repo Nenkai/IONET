@@ -24,8 +24,6 @@ namespace IONET.Collada
         /// </summary>
         private Collada _collada;
 
-        private Matrix4x4 GlobalBoneTransform = Matrix4x4.Identity;
-
         /// <summary>
         /// 
         /// </summary>
@@ -82,16 +80,11 @@ namespace IONET.Collada
                                 skelIDs.Add(j);
                 }
 
-                GlobalBoneTransform = Matrix4x4.Identity;
-
                 // load nodes
                 foreach (var v in colscene.Node)
                 {
-                    LoadNodes(v, null, model, skelIDs, Matrix4x4.Identity);
+                    LoadNodes(v, null, model, skelIDs);
                 }
-
-                if (GlobalBoneTransform != Matrix4x4.Identity)
-                    model.Transform(GlobalBoneTransform);
 
                 // add model
                 scene.Models.Add(model);
@@ -162,7 +155,7 @@ namespace IONET.Collada
         /// </summary>
         /// <param name="n"></param>
         /// <param name="bones"></param>
-        private IOBone LoadNodes(Node n, IOBone parent, IOModel model, List<string> skeletonIds, Matrix4x4 rootTransform)
+        private IOBone LoadNodes(Node n, IOBone parent, IOModel model, List<string> skeletonIds)
         {
             // create bone to represent node
             IOBone bone = new IOBone()
@@ -202,13 +195,13 @@ namespace IONET.Collada
                         var val = r.GetValues();
                         switch (r.sID)
                         {
-                            case "rotationX":
+                            case "rotateX":
                                 rx = new Vector4(val[0], val[1], val[2], val[3]);
                                 break;
-                            case "rotationY":
+                            case "rotateY":
                                 ry = new Vector4(val[0], val[1], val[2], val[3]);
                                 break;
-                            case "rotationZ":
+                            case "rotateZ":
                                 rz = new Vector4(val[0], val[1], val[2], val[3]);
                                 break;
                         }
@@ -217,18 +210,12 @@ namespace IONET.Collada
 
                 float deg2Rad = (float)System.Math.PI / 180.0f;
 
-                // create transform
-                bone.LocalTransform = Matrix4x4.CreateTranslation(position) *
-                    (Matrix4x4.CreateFromAxisAngle(new Vector3(rz.X, rz.Y, rz.Z), rz.W * deg2Rad) *
+                bone.LocalTransform = Matrix4x4.CreateScale(scale) *
+                    (Matrix4x4.CreateFromAxisAngle(new Vector3(rx.X, rx.Y, rx.Z), rx.W * deg2Rad) *
                     Matrix4x4.CreateFromAxisAngle(new Vector3(ry.X, ry.Y, ry.Z), ry.W * deg2Rad) *
-                    Matrix4x4.CreateFromAxisAngle(new Vector3(rx.X, rx.Y, rx.Z), rx.W * deg2Rad)) *
-                    Matrix4x4.CreateScale(scale);
+                    Matrix4x4.CreateFromAxisAngle(new Vector3(rz.X, rz.Y, rz.Z), rz.W * deg2Rad)) *
+                     Matrix4x4.CreateTranslation(position);
             }
-
-            var parentTransform = Matrix4x4.Identity;
-
-            if (n.Type == Node_Type.NODE && n.Matrix != null && n.Matrix.Length >= 0)
-                parentTransform *= n.Matrix[0].ToMatrix();
 
             // add this node to parent
             if (parent != null)
@@ -237,7 +224,7 @@ namespace IONET.Collada
             // load children
             if (n.node != null)
                 foreach (var v in n.node)
-                    LoadNodes(v, bone, model, skeletonIds, parentTransform * rootTransform);
+                    LoadNodes(v, bone, model, skeletonIds);
 
 
             // load instanced geometry
@@ -252,9 +239,14 @@ namespace IONET.Collada
 
                     //Bind materials
                     if (g.Bind_Material?.Length > 0) {
-                        var materialInstance = g.Bind_Material[0].Technique_Common.Instance_Material[0];
-                        foreach (var poly in geom.Polygons) {
-                            poly.MaterialName = materialInstance.Target.Replace("#", "");
+
+                        foreach (Instance_Material_Geometry materialGeometry in g.Bind_Material[0].Technique_Common.Instance_Material)
+                        {
+                            foreach (IOPolygon polygon in geom.Polygons)
+                            {
+                                if (polygon.MaterialName == materialGeometry.Symbol)
+                                    polygon.MaterialName = materialGeometry.Target.Replace("#", "");
+                            }
                         }
                     }
                 }
@@ -282,59 +274,22 @@ namespace IONET.Collada
             }
 
             // detect skeleton
-            if (IsSkeletonRoot(model, n, bone, skeletonIds) ||
-                (parent == null &&
-                n.node != null &&
+            if ((!string.IsNullOrEmpty(bone.Name) && skeletonIds.Contains(bone.Name)) ||
+                (n.Type == Node_Type.JOINT && parent == null) ||
+                (n.Instance_Camera == null && 
+                n.Instance_Controller == null &&
+                n.Instance_Geometry == null &&
+                n.Instance_Light == null && 
+                n.Instance_Node == null && 
+                parent == null && 
+                n.node != null && 
                 n.node.Length > 0))
             {
-                if (parent != null)
-                    GlobalBoneTransform = parent.WorldTransform;
-                bone.Parent = null;
                 model.Skeleton.RootBones.Add(bone);
             }
 
             // complete
             return bone;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        private bool IsSkeletonRoot(IOModel m, Node n, IOBone bone, List<string> skeletonIds)
-        {
-            //check none of parents are joints
-            var parent = bone.Parent;
-            while (parent != null)
-            {
-                if (m.Skeleton.RootBones.Contains(parent))
-                    return false;
-
-                parent = parent.Parent;
-            }
-
-            //// check if any descendents have a joint node
-
-            bool hasDescendent = false;
-
-            Queue<Node> nodes = new Queue<Node>();
-            nodes.Enqueue(n);
-            while (nodes.Count > 0)
-            {
-                var node = nodes.Dequeue();
-                if (node.Type == Node_Type.JOINT || skeletonIds.Contains(node.Name))
-                {
-                    hasDescendent = true;
-                    break;
-                }
-
-                if (node.node != null)
-                    foreach (var c in node.node)
-                        nodes.Enqueue(c);
-            }
-
-            // if both true then this is a skeleton root
-            return hasDescendent;
         }
 
         /// <summary>
@@ -458,6 +413,8 @@ namespace IONET.Collada
             {
                 Name = n.Name
             };
+            if (mesh.Name.Contains("FBXASC"))
+                mesh.Name = mesh.Name.Split(new string[1] {"FBXASC" }, StringSplitOptions.None).FirstOrDefault();
 
             // create source manager helper 
             SourceManager srcs = new SourceManager();
@@ -513,17 +470,21 @@ namespace IONET.Collada
 
                     var p = tri.P.GetValues();
 
-                    for(int i = 0; i < tri.Count * 3; i++)
+                    for (int i = 0; i < tri.Count * 3; i++)
                     {
                         IOVertex vertex = new IOVertex();
 
                         for(int j = 0; j < tri.Input.Length; j++)
                         {
                             var input = tri.Input[j];
+                            //Find smallest UV set actually used
+                            var minSet = tri.Input.Where(x => x.Semantic == input.Semantic).Min(x => x.Set);
+                            //Get the real set ID
+                            var set = input.Set - minSet;
 
                             var index = p[i * stride + input.Offset];
 
-                            ProcessInput(input.Semantic, input.source, input.Set, vertex, geom.Mesh.Vertices, index, srcs, vertexEnvelopes);
+                            ProcessInput(input.Semantic, input.source, set, vertex, geom.Mesh.Vertices, index, srcs, vertexEnvelopes);
                         }
 
                         poly.Indicies.Add(mesh.Vertices.Count);
@@ -534,6 +495,9 @@ namespace IONET.Collada
                 }
             }
 
+            if (geom.Mesh.Triangles == null && geom.Mesh.Polylist == null)
+                throw new Exception("Model must use triangles!");
+
             //TODO: collada trifan
 
             //TODO: collada  tristrip
@@ -543,7 +507,7 @@ namespace IONET.Collada
             //TODO: collada polylist
 
             //TODO: collada polygon
-            
+
             return mesh;
         }
 
@@ -557,6 +521,8 @@ namespace IONET.Collada
         private void ProcessInput(Input_Semantic semantic, string source, int set, IOVertex vertex, Vertices vertices, int index, SourceManager srcs, List<IOEnvelope> vertexEnvelopes)
         {
             var values = srcs.GetFloatValue(source, index);
+            if (values == null)
+                return;
 
             switch (semantic)
             {
@@ -595,6 +561,7 @@ namespace IONET.Collada
                         values.Length > 0 ? values[0] : 0,
                         values.Length > 1 ? values[1] : 0,
                         values.Length > 2 ? values[2] : 0);
+
                     break;
                 case Input_Semantic.TANGENT:
                     vertex.Tangent = new Vector3(
@@ -609,6 +576,7 @@ namespace IONET.Collada
                         values.Length > 2 ? values[2] : 0);
                     break;
                 case Input_Semantic.TEXCOORD:
+                    //Handle the set by total amount instead
                     vertex.SetUV(
                         values.Length > 0 ? values[0] : 0,
                         values.Length > 1 ? values[1] : 0,
@@ -616,10 +584,10 @@ namespace IONET.Collada
                     break;
                 case Input_Semantic.COLOR:
                     vertex.SetColor(
-                        values.Length > 0 ? values[0] : 1.0f,
-                        values.Length > 1 ? values[1] : 1.0f,
-                        values.Length > 2 ? values[2] : 1.0f,
-                        values.Length > 3 ? values[3] : 1.0f,
+                        values.Length > 0 ? values[0] : 0,
+                        values.Length > 1 ? values[1] : 0,
+                        values.Length > 2 ? values[2] : 0,
+                        values.Length > 3 ? values[3] : 0,
                         set);
                     break;
             }
@@ -829,7 +797,8 @@ namespace IONET.Collada
                                     if (sur2d != null)
                                     {
                                         var init = FindChild(sur2d, "init_from");
-                                        texid = init.InnerText;
+                                        if (init != null)
+                                            texid = init.InnerText;
                                     }
                                 }
                             }
@@ -837,15 +806,13 @@ namespace IONET.Collada
                     }
                 }
 
-                // lookup image from image library
-                if (_collada.Library_Images?.Image != null)
+                if (_collada.Library_Images != null && _collada.Library_Images.Image != null)
                 {
+                    // lookup image from image library
                     var image = _collada.Library_Images.Image.FirstOrDefault(e => e.ID == texid);
-                    if (image != null)
-                    {
-                        texture.Name = image.Name;
-                        texture.FilePath = string.IsNullOrEmpty(image.Init_From.Ref) ? image.Init_From.Value : image.Init_From.Ref;
-                    }
+
+                    texture.Name = image.Name;
+                    texture.FilePath = string.IsNullOrEmpty(image.Init_From.Ref) ? image.Init_From.Value : image.Init_From.Ref;
                 }
             }
 

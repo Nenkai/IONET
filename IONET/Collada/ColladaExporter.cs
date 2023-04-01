@@ -40,8 +40,6 @@ namespace IONET.Collada
         /// <returns></returns>
         public string GetUniqueID(string id)
         {
-            id = id.Replace(" ", "_");
-
             if (!_usedIDs.Contains(id))
             {
                 _usedIDs.Add(id);
