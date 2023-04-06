@@ -100,6 +100,9 @@ namespace IONET.Core
         {
             if (this.Weights.Count <= max)
                 return;
+
+            this.Weights = this.Weights.OrderByDescending(x => x.Weight).ToList();
+
             List<IOBoneWeight> ioBoneWeightList = new List<IOBoneWeight>();
             for (int index = 0; index < this.Weights.Count; ++index)
             {
