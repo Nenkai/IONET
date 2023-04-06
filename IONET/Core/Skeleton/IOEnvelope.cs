@@ -1,4 +1,5 @@
-﻿using System;
+﻿using IONET.Collada.Core.Transform;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -64,7 +65,7 @@ namespace IONET.Core
             return optimized;
         }
         public void Normalize() => Normalize(this.Weights);
-        public void NormalizeByteType() => NormalizeByteType(this.Weights);
+        public void NormalizeByteType(float scale = 0.01f) => NormalizeByteType(this.Weights, scale);
 
         /// <summary>
         /// Makes sure all weights add up to 1.0f.
@@ -72,15 +73,28 @@ namespace IONET.Core
         /// </summary>
         private static void Normalize(IEnumerable<IOBoneWeight> weights, int weightDecimalPlaces = 7)
         {
-            float denom = 0.0f;
-            foreach (IOBoneWeight b in weights)
-                if (b != null)
-                    denom += b.Weight;
+            float max_precent = 1.0f;
+            List<IOBoneWeight> list = weights.ToList<IOBoneWeight>();
 
-            if (denom > 0.0f)
-                foreach (IOBoneWeight b in weights)
-                    if (b != null)
-                        b.Weight = (float)Math.Round(b.Weight / denom, weightDecimalPlaces);
+            int weightID = 0;
+            foreach (IOBoneWeight weight in weights)
+            {
+                ++weightID;
+                if (weight != null)
+                {
+                    float weightBase = weight.Weight;
+                    if (list.Count == weightID) //If last weight
+                        weightBase = max_precent; //Apply the last filled precentile
+                    if (weightBase >= max_precent) //If weights go over max then clamp it
+                    {
+                        weightBase = max_precent;
+                        max_precent = 0;
+                    }
+                    else //Lower the precent by each provided weight
+                        max_precent -= weightBase;
+                    weight.Weight = weightBase;
+                }
+            }
         }
         public void LimtSkinCount(int max)
         {
@@ -97,30 +111,37 @@ namespace IONET.Core
             IOEnvelope.Normalize((IEnumerable<IOBoneWeight>)this.Weights);
         }
 
-        private static void NormalizeByteType(IEnumerable<IOBoneWeight> weights)
+        private static void NormalizeByteType(IEnumerable<IOBoneWeight> weights, float scale = 0.01f)
         {
-            float num1 = 0.003921569f;
-            int num2 = (int)byte.MaxValue;
+            if (scale == 1.0f)
+            {
+                IOEnvelope.Normalize(weights);
+                return;
+            }
+
+            int max_precent = (int)(1.0f / scale);
             List<IOBoneWeight> list = weights.ToList<IOBoneWeight>();
-            int num3 = 0;
+
+            int weightID = 0;
             foreach (IOBoneWeight weight in weights)
             {
-                ++num3;
+                ++weightID;
                 if (weight != null)
                 {
-                    int num4 = (int)Math.Round((double)weight.Weight / (double)num1, 2);
-                    if (list.Count == num3)
-                        num4 = num2;
-                    if (num4 >= num2)
+                    int weightInt = (int)MathF.Round(weight.Weight / scale);
+                    if (list.Count == weightID) //If last weight
+                        weightInt = max_precent; //Apply the last filled precentile
+                    if (weightInt >= max_precent) //If weights go over max then clamp it
                     {
-                        num4 = num2;
-                        num2 = 0;
+                        weightInt = max_precent;
+                        max_precent = 0;
                     }
-                    else
-                        num2 -= num4;
-                    weight.Weight = (float)num4 * num1;
+                    else //Lower the precent by each provided weight
+                        max_precent -= weightInt;
+                    weight.Weight = weightInt * scale;
                 }
             }
+           // Console.WriteLine($"Normalized weights {string.Join(',', normalized)}");
         }
     }
 

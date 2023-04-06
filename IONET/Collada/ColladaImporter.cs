@@ -584,10 +584,10 @@ namespace IONET.Collada
                     break;
                 case Input_Semantic.COLOR:
                     vertex.SetColor(
-                        values.Length > 0 ? values[0] : 0,
-                        values.Length > 1 ? values[1] : 0,
-                        values.Length > 2 ? values[2] : 0,
-                        values.Length > 3 ? values[3] : 0,
+                        values.Length > 0 ? values[0] : 1.0f,
+                        values.Length > 1 ? values[1] : 1.0f,
+                        values.Length > 2 ? values[2] : 1.0f,
+                        values.Length > 3 ? values[3] : 1.0f,
                         set);
                     break;
             }
@@ -810,9 +810,11 @@ namespace IONET.Collada
                 {
                     // lookup image from image library
                     var image = _collada.Library_Images.Image.FirstOrDefault(e => e.ID == texid);
-
-                    texture.Name = image.Name;
-                    texture.FilePath = string.IsNullOrEmpty(image.Init_From.Ref) ? image.Init_From.Value : image.Init_From.Ref;
+                    if (image != null)
+                    {
+                        texture.Name = image.Name;
+                        texture.FilePath = string.IsNullOrEmpty(image.Init_From.Ref) ? image.Init_From.Value : image.Init_From.Ref;
+                    }
                 }
             }
 
