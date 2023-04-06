@@ -84,7 +84,7 @@ namespace IONET.Core
                 {
                     float weightBase = weight.Weight;
                     if (list.Count == weightID) //If last weight
-                        weightBase = max_precent; //Apply the last filled precentile
+                        weightBase = max_precent; //Apply the last filled percentile
                     if (weightBase >= max_precent) //If weights go over max then clamp it
                     {
                         weightBase = max_precent;
@@ -130,7 +130,7 @@ namespace IONET.Core
                 {
                     int weightInt = (int)MathF.Round(weight.Weight / scale);
                     if (list.Count == weightID) //If last weight
-                        weightInt = max_precent; //Apply the last filled precentile
+                        weightInt = max_precent; //Apply the last filled percentile
                     if (weightInt >= max_precent) //If weights go over max then clamp it
                     {
                         weightInt = max_precent;
