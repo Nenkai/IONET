@@ -1,7 +1,7 @@
 ﻿using System;
 using IONET;
 
-namespace ColladaTest2
+namespace ColladaTest
 {
     class Program
     {
