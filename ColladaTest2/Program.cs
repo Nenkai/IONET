@@ -1,7 +1,7 @@
 ﻿using System;
 using IONET;
 
-namespace ColladaTest
+namespace ColladaTest2
 {
     class Program
     {
@@ -11,8 +11,6 @@ namespace ColladaTest
             {
 
             });
-
-
             Console.WriteLine("Mesh Count: " + scene.Models[0].Meshes.Count);
         }
     }

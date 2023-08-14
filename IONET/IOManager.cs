@@ -272,6 +272,11 @@ namespace IONET
                             }
                         }
 
+                        foreach (var anim in scene.Animations)
+                        {
+                            anim.ApplySegmentScaleCompensate(scene.Models);
+                        }
+
                         l.ExportScene(scene, filePath, settings);
                         break;
                     }

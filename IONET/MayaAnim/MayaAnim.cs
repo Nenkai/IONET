@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.IO;
 using IONET.Core.Skeleton;
 using IONET.Core.Animation;
+using IONET.Core.IOMath;
 
 namespace IONET.MayaAnim
 {
@@ -222,12 +223,12 @@ namespace IONET.MayaAnim
                                                 key.outtan = keyArgs[3];
                                             }
 
-                                            if (key.intan == "fixed")
+                                            if (key.intan == "fixed" || key.intan == "spline")
                                             {
                                                 key.t1 = float.Parse(keyArgs[7]);
                                                 key.w1 = float.Parse(keyArgs[8]);
                                             }
-                                            if (key.outtan == "fixed" && keyArgs.Length > 9)
+                                            if ((key.outtan == "fixed" || key.intan == "spline") && keyArgs.Length > 9)
                                             {
                                                 key.t2 = float.Parse(keyArgs[9]);
                                                 key.w2 = float.Parse(keyArgs[10]);
@@ -282,9 +283,8 @@ namespace IONET.MayaAnim
                         file.WriteLine(" keys {");
                         foreach (AnimKey key in animData.keys)
                         {
-                            // TODO: fixed splines
-                            string tanin = key.intan == "fixed" ? " " + key.t1 + " " + key.w1 : "";
-                            string tanout = key.outtan == "fixed" ? " " + key.t2 + " " + key.w2 : "";
+                            string tanin = key.intan == "spline" || key.intan == "fixed" || key.intan == "auto" ? " " + key.t1 + " " + key.w1 : "";
+                            string tanout = key.intan == "spline" || key.outtan == "fixed" || key.outtan == "auto" ? " " + key.t2 + " " + key.w2 : "";
                             file.WriteLine($" {key.input} {key.output:N6} {key.intan} {key.outtan} 1 1 0{tanin}{tanout};");
                         }
                         file.WriteLine(" }");
@@ -307,6 +307,8 @@ namespace IONET.MayaAnim
         {
             IOAnimation anim = new IOAnimation();
             anim.Name = this.Name;
+            anim.StartFrame = this.header.startTime;
+            anim.EndFrame = this.header.endTime;
             foreach (var mayaAnimBone in this.Bones)
             {
                 IOAnimation animBone = new IOAnimation();
@@ -340,14 +342,15 @@ namespace IONET.MayaAnim
 
             foreach (var key in data.keys)
             {
-                if (key.intan == "fixed" || key.outtan == "fixed")
+                if (key.intan == "fixed" || key.outtan == "fixed" ||
+                    key.intan == "spline" || key.outtan == "spline")
                 {
                     track.KeyFrames.Add(new IOKeyFrameHermite()
                     {
                         Frame = key.input - header.startTime,
                         Value = GetOutputValue(this, data, key.output),
-                        TangentSlopeInput = key.t1,
-                        TangentSlopeOutput = key.t2,
+                        TangentSlopeInput = GetOutputValue(this, data, key.t1),
+                        TangentSlopeOutput = GetOutputValue(this, data, key.t2),
                         TangentWeightInput = key.w1,
                         TangentWeightOutput = key.w2,
                     });
@@ -394,7 +397,9 @@ namespace IONET.MayaAnim
         {
             MayaAnim anim = new MayaAnim();
             anim.header.startTime = 0;
-            anim.header.endTime = animation.GetFrameCount();
+            anim.header.endTime = animation.EndFrame != 0 ? animation.EndFrame :  animation.GetFrameCount();
+            if (!settings.MayaAnimUseRadians)
+                anim.header.angularUnit = "deg";
 
             // get bone order
             List<IOBone> BonesInOrder = getBoneTreeOrder(skeleton);
@@ -409,9 +414,14 @@ namespace IONET.MayaAnim
                 };
                 anim.Bones.Add(animBone);
 
+                Console.WriteLine($"AnimBone {animBone.name}");
+
                 var group = animation.Groups.FirstOrDefault(x => x.Name.Equals(b.Name));
                 if (group == null)
+                {
+                    Console.WriteLine($"Bone not found {group}! Skipping");
                     continue;
+                }
 
                 foreach (var track in group.Tracks)
                 {
@@ -490,6 +500,15 @@ namespace IONET.MayaAnim
                     animKey.t2 = ((IOKeyFrameHermite)key).TangentSlopeOutput;
                     animKey.w1 = ((IOKeyFrameHermite)key).TangentWeightInput;
                     animKey.w2 = ((IOKeyFrameHermite)key).TangentWeightOutput;
+
+                    animKey.t1 = MathF.Atan(animKey.t1);
+                    animKey.t2 = MathF.Atan(animKey.t2);
+
+                    if (isAngle && !settings.MayaAnimUseRadians)
+                    {
+                        animKey.t1 = MathExt.RadToDeg(animKey.t1);
+                        animKey.t2 = MathExt.RadToDeg(animKey.t2);
+                    }
                 }
                 d.keys.Add(animKey);
                 if (IsConstant)

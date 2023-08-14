@@ -80,10 +80,12 @@ namespace IONET.Collada
                                 skelIDs.Add(j);
                 }
 
+                Matrix4x4 parentMatrix = Matrix4x4.Identity;
+
                 // load nodes
                 foreach (var v in colscene.Node)
                 {
-                    LoadNodes(v, null, model, skelIDs);
+                    LoadNodes(v, null, parentMatrix, model, skelIDs);
                 }
 
                 // add model
@@ -155,7 +157,7 @@ namespace IONET.Collada
         /// </summary>
         /// <param name="n"></param>
         /// <param name="bones"></param>
-        private IOBone LoadNodes(Node n, IOBone parent, IOModel model, List<string> skeletonIds)
+        private IOBone LoadNodes(Node n, IOBone parent, Matrix4x4 parentMatrix, IOModel model, List<string> skeletonIds)
         {
             // create bone to represent node
             IOBone bone = new IOBone()
@@ -210,21 +212,25 @@ namespace IONET.Collada
 
                 float deg2Rad = (float)System.Math.PI / 180.0f;
 
-                bone.LocalTransform = Matrix4x4.CreateScale(scale) *
+                bone.LocalTransform = (Matrix4x4.CreateScale(scale) *
                     (Matrix4x4.CreateFromAxisAngle(new Vector3(rx.X, rx.Y, rx.Z), rx.W * deg2Rad) *
                     Matrix4x4.CreateFromAxisAngle(new Vector3(ry.X, ry.Y, ry.Z), ry.W * deg2Rad) *
                     Matrix4x4.CreateFromAxisAngle(new Vector3(rz.X, rz.Y, rz.Z), rz.W * deg2Rad)) *
-                     Matrix4x4.CreateTranslation(position);
+                     Matrix4x4.CreateTranslation(position));
             }
 
             // add this node to parent
             if (parent != null)
                 parent.AddChild(bone);
 
+            bool isBone = !string.IsNullOrEmpty(bone.Name) && skeletonIds.Contains(bone.Name) || (n.Type == Node_Type.JOINT);
+
+            var p = isBone ? bone : null;
+
             // load children
             if (n.node != null)
                 foreach (var v in n.node)
-                    LoadNodes(v, bone, model, skeletonIds);
+                    LoadNodes(v, p, bone.LocalTransform * parentMatrix, model, skeletonIds);
 
 
             // load instanced geometry
@@ -233,7 +239,7 @@ namespace IONET.Collada
                 foreach (var g in n.Instance_Geometry)
                 {
                     var geom = LoadGeometryFromID(n, g.URL);
-                    geom.TransformVertices(bone.WorldTransform);
+                    geom.TransformVertices(bone.LocalTransform * parentMatrix);
                     geom.ParentBone = bone;
                     model.Meshes.Add(geom);
 
@@ -258,7 +264,7 @@ namespace IONET.Collada
                 foreach (var c in n.Instance_Controller)
                 {
                     var geom = LoadGeometryControllerFromID(n, c.URL);
-                    geom.TransformVertices(bone.WorldTransform);
+                    geom.TransformVertices(bone.LocalTransform * parentMatrix);
                     geom.ParentBone = bone;
                     model.Meshes.Add(geom);
 
@@ -275,17 +281,11 @@ namespace IONET.Collada
 
             // detect skeleton
             if ((!string.IsNullOrEmpty(bone.Name) && skeletonIds.Contains(bone.Name)) ||
-                (n.Type == Node_Type.JOINT && parent == null) ||
-                (n.Instance_Camera == null && 
-                n.Instance_Controller == null &&
-                n.Instance_Geometry == null &&
-                n.Instance_Light == null && 
-                n.Instance_Node == null && 
-                parent == null && 
-                n.node != null && 
-                n.node.Length > 0))
+                (n.Type == Node_Type.JOINT && parent == null))
             {
                 model.Skeleton.RootBones.Add(bone);
+
+                bone.LocalTransform *= parentMatrix;
             }
 
             // complete

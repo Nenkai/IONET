@@ -29,6 +29,21 @@ namespace IONET.Core.Animation
         /// </summary>
         public List<IOKeyFrame> KeyFrames { get; internal set; } = new List<IOKeyFrame>();
 
+        public void InsertKeyframe(float frame, float value)
+        {
+            var key = KeyFrames.FirstOrDefault(x=> x.Frame == frame);
+            if (key != null)
+                key.Value = value;
+            else
+            {
+                KeyFrames.Add(new IOKeyFrame()
+                {
+                    Frame = frame,
+                    Value = value,
+                }); 
+            }
+        }
+
         public float GetFrameValue(float frame)
         {
             if (KeyFrames.Count == 0) return 0;
