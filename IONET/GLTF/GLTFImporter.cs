@@ -54,10 +54,7 @@ namespace IONET.GLTF
 
                 foreach (var channel in mat.Channels)
                 {
-                    string texName = "";
-                    if (channel.Texture != null)
-                        texName = channel.Texture.PrimaryImage.Name;
-
+                    string texName = channel.Texture != null ? channel.Texture.PrimaryImage.Name : "";
                     if (string.IsNullOrEmpty(texName))
                         continue;
 
