@@ -41,6 +41,7 @@ namespace IONET
             new SMDExporter(),
             new OBJExporter(),
             new MayaAnimExporter(),
+            new GLTFExporter(),
         };
 
         /// <summary>

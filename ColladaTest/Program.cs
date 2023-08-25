@@ -15,9 +15,12 @@ namespace ColladaTest
             {
 
             });
+            IOManager.ExportScene(scene, "untitledRB.glb", new ExportSettings()
+            {
 
+            });
 
-          //  Console.WriteLine("Mesh Count: " + scene.Models[0].Meshes.Count);
+            //  Console.WriteLine("Mesh Count: " + scene.Models[0].Meshes.Count);
         }
     }
 }

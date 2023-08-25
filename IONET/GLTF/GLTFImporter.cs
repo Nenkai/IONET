@@ -15,6 +15,7 @@ using IONET.Collada.FX.Rendering;
 using IONET.Collada.FX.Profiles.COMMON;
 using System.Xml;
 using SharpGLTF.Schema2;
+using IONET.Collada.Core.Animation;
 
 namespace IONET.GLTF
 {
@@ -27,6 +28,26 @@ namespace IONET.GLTF
         public string Name()
         {
             return "GLTF";
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public string[] GetExtensions()
+        {
+            return new string[] { ".gltf", ".glb" };
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public bool Verify(string filePath)
+        {
+            string ext = Path.GetExtension(filePath).ToLower();
+            return ext.Equals(".gltf") || ext.Equals(".glb");
         }
 
         /// <summary>
@@ -46,38 +67,44 @@ namespace IONET.GLTF
             foreach (var node in model.LogicalScenes[0].VisualChildren)
                 ProcessNodes(iomodel, node, null, Matrix4x4.Identity);
 
+            //Animation handling
+            foreach (var anim in model.LogicalAnimations)
+            {
+                foreach (var channel in anim.Channels)
+                {
+                    if (channel.TargetNode == null)
+                        continue;
+
+                    var trans = channel.GetTranslationSampler();
+                    var rotation = channel.GetRotationSampler(); //in quat
+                    var scale = channel.GetScaleSampler();
+                    var name = channel.TargetNode.Name;
+                }
+            }
+
             foreach (var mat in model.LogicalMaterials)
             {
                 IOMaterial iomaterial = new IOMaterial();
                 iomaterial.Name = mat.Name;
                 scene.Materials.Add(iomaterial);
 
+                //Texture map handling
                 foreach (var channel in mat.Channels)
                 {
-                    string texName = channel.Texture != null ? channel.Texture.PrimaryImage.Name : "";
+                    //No texture, skip
+                    if (channel.Texture == null || channel.Texture.PrimaryImage == null)
+                        continue;
+
+                    //texture name is empty, skip
+                    string texName = channel.Texture.PrimaryImage.Name;
                     if (string.IsNullOrEmpty(texName))
                         continue;
 
                     switch (channel.Key)
                     {
-                        case "BaseColor":
-                            iomaterial.DiffuseMap = new IOTexture()
-                            {
-                                Name = texName,
-                            };
-                            break;
-                        case "Normal":
-                            iomaterial.NormalMap = new IOTexture()
-                            {
-                                Name = texName,
-                            };
-                            break;
-                        case "Emissive":
-                            iomaterial.EmissionMap = new IOTexture()
-                            {
-                                Name = texName,
-                            };
-                            break;
+                        case "BaseColor": iomaterial.DiffuseMap = ConvertTextureMap(channel.Texture, channel.TextureSampler); break;
+                        case "Normal": iomaterial.NormalMap = ConvertTextureMap(channel.Texture, channel.TextureSampler); break;
+                        case "Emissive": iomaterial.EmissionMap = ConvertTextureMap(channel.Texture, channel.TextureSampler); break;
                     }
                 }
             }
@@ -87,12 +114,36 @@ namespace IONET.GLTF
             return scene;
         }
 
+        private IOTexture ConvertTextureMap(SharpGLTF.Schema2.Texture texture, SharpGLTF.Schema2.TextureSampler sampler)
+        {
+            WrapMode ConvertWrap(TextureWrapMode mode)
+            {
+                switch (mode)
+                {
+                    case TextureWrapMode.REPEAT: return WrapMode.REPEAT;
+                    case TextureWrapMode.MIRRORED_REPEAT: return WrapMode.MIRROR;
+                    case TextureWrapMode.CLAMP_TO_EDGE: return WrapMode.CLAMP;
+                }
+                return WrapMode.REPEAT;
+            }
+
+            string path = texture.PrimaryImage.AlternateWriteFileName;
+
+            return new IOTexture()
+            {
+                Name = texture.PrimaryImage.Name,
+                FilePath = path == null ? "" : path,
+                WrapS = ConvertWrap(texture.Sampler.WrapS),
+                WrapT = ConvertWrap(texture.Sampler.WrapT),
+            };
+        }
+
         private void ProcessNodes(IOModel iomodel, SharpGLTF.Schema2.Node node, IOBone boneParent, Matrix4x4 parentMatrix)
         {
             var worldTransform = node.LocalMatrix * parentMatrix;
 
             if (node.Mesh != null)
-                iomodel.Meshes.Add(CreateMesh(node.Mesh, node.Skin, worldTransform));
+                iomodel.Meshes.Add(CreateMesh(node.Mesh, node.Skin, node.WorldMatrix));
 
             //Add bone if skinning type is used or parent bone exists
             IOBone iobone = null;
@@ -107,6 +158,7 @@ namespace IONET.GLTF
                 {
                     //apply parent matrix to apply prior node transforms to the skeleton root
                     iobone.LocalTransform = node.LocalMatrix * parentMatrix;
+
                     iomodel.Skeleton.RootBones.Add(iobone);
                 }
             }
@@ -119,11 +171,13 @@ namespace IONET.GLTF
         {
             IOMesh iomesh = new IOMesh();
             iomesh.Name = mesh.Name;
-            
             foreach (var prim in mesh.Primitives)
             {
                 IOPolygon iopoly = new IOPolygon();
                 iomesh.Polygons.Add(iopoly);
+
+                if (prim.Material != null)
+                    iopoly.MaterialName = prim.Material.Name;
 
                 foreach (var tri in prim.GetTriangleIndices())
                 {
@@ -157,10 +211,7 @@ namespace IONET.GLTF
                 foreach (var accessor in prim.VertexAccessors)
                 {
                     if (accessor.Key.StartsWith("JOINTS_"))
-                    {
-                        foreach (var ind in accessor.Value.AsVector4Array())
-                            boneIndexList.Add(accessor.Value.AsVector4Array());
-                    }
+                        boneIndexList.Add(accessor.Value.AsVector4Array());
                 }
                 //positions
                 var pos = prim.GetVertexAccessor("POSITION").AsVector3Array();
@@ -186,30 +237,31 @@ namespace IONET.GLTF
                         vertices[i].SetColor(
                             colorList[j][i].X, colorList[j][i].Y, colorList[j][i].Z, colorList[j][i].W, j);
                     //tangents
-                    if (tangent?.Count > 0) vertices[i].Tangent = new Vector3(
-                        tangent[i].X, tangent[i].Y, tangent[i].Z);
-
-                    //transform at end
-                    vertices[i].Position = Vector3.Transform(vertices[i].Position, worldTransform);
-                    vertices[i].Normal = Vector3.TransformNormal(vertices[i].Normal, worldTransform);
+                    if (tangent?.Count > 0) 
+                        vertices[i].Tangent = new Vector3(tangent[i].X, tangent[i].Y, tangent[i].Z);
 
                     if (weightList.Count > 0) //bone indices + weights
                     {
-                        var bones = boneIndexList[0][i];
-                        float[] weights = new float[4] { weightList[0][i].X, weightList[0][i].Y, weightList[0][i].Z, weightList[0][i].W };
-                        float[] indices = new float[4] { boneIndexList[0][i].X, boneIndexList[0][i].Y, boneIndexList[0][i].Z, boneIndexList[0][i].W };
-
-                        for (int j = 0; j < 4; j++)
+                        for (int b = 0; b < boneIndexList.Count; b++)
                         {
-                            if (weights[j] == 0)
-                                continue;
+                            var bones4 = boneIndexList[b][i];
+                            var weights4 = weightList[b][i];
 
-                            var joint = skin.GetJoint((int)indices[j]);
-                            vertices[i].Envelope.Weights.Add(new IOBoneWeight()
+                            float[] weights = new float[4] { weights4.X, weights4.Y, weights4.Z, weights4.W };
+                            float[] indices = new float[4] { bones4.X, bones4.Y, bones4.Z, bones4.W };
+
+                            for (int j = 0; j < 4; j++)
                             {
-                                BoneName = joint.Joint.Name,
-                                Weight = weights[j],
-                            });
+                                if (weights[j] == 0)
+                                    continue;
+
+                                var joint = skin.GetJoint((int)indices[j]);
+                                vertices[i].Envelope.Weights.Add(new IOBoneWeight()
+                                {
+                                    BoneName = joint.Joint.Name,
+                                    Weight = weights[j],
+                                });
+                            }
                         }
                     }
                     else if (boneIndexList.Count > 0) //bone indices rigid, no weights
@@ -225,28 +277,11 @@ namespace IONET.GLTF
                     }
                 }
                 iomesh.Vertices.AddRange(vertices);
+
+                //transform mesh
+            //    iomesh.TransformVertices(worldTransform);
             }
             return iomesh;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public string[] GetExtensions()
-        {
-            return new string[] { ".gltf", ".glb" };
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="filePath"></param>
-        /// <returns></returns>
-        public bool Verify(string filePath)
-        {
-            string ext = Path.GetExtension(filePath).ToLower();
-            return ext.Equals(".gltf") || ext.Equals(".glb");
         }
     }
 }
