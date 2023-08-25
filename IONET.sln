@@ -5,7 +5,7 @@ VisualStudioVersion = 17.6.33801.468
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IONET", "IONET\IONET.csproj", "{DFD941C7-60FE-4795-B0C4-BF35ADE5C2CD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ColladaTest", "ColladaTest2\ColladaTest.csproj", "{D8B87999-74FC-4C4C-ABE7-CDB95DAED84B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ColladaTest", "ColladaTest\ColladaTest.csproj", "{6DAF39D5-3E60-4CE0-829C-82CE9C922B9B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,10 @@ Global
 		{DFD941C7-60FE-4795-B0C4-BF35ADE5C2CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DFD941C7-60FE-4795-B0C4-BF35ADE5C2CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DFD941C7-60FE-4795-B0C4-BF35ADE5C2CD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D8B87999-74FC-4C4C-ABE7-CDB95DAED84B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D8B87999-74FC-4C4C-ABE7-CDB95DAED84B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D8B87999-74FC-4C4C-ABE7-CDB95DAED84B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D8B87999-74FC-4C4C-ABE7-CDB95DAED84B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6DAF39D5-3E60-4CE0-829C-82CE9C922B9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6DAF39D5-3E60-4CE0-829C-82CE9C922B9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6DAF39D5-3E60-4CE0-829C-82CE9C922B9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6DAF39D5-3E60-4CE0-829C-82CE9C922B9B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

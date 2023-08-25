@@ -21,6 +21,8 @@ namespace IONET.Core.Model
         public Vector4 DiffuseColor { get; set; } = Vector4.One;
         public IOTexture DiffuseMap { get; set; }
 
+        public IOTexture NormalMap { get; set; }
+
         public Vector4 SpecularColor { get; set; } = new Vector4(0.2f, 0.2f, 0.2f, 1);
         public IOTexture SpecularMap { get; set; }
 

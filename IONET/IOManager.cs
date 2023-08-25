@@ -11,6 +11,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Threading;
 using System.Globalization;
+using IONET.GLTF;
 
 namespace IONET
 {
@@ -27,6 +28,7 @@ namespace IONET
             new OBJImporter(),
             new FbxImporter(),
             new MayaAnimImporter(),
+            new GLTFImporter(),
         };
 
         /// <summary>
