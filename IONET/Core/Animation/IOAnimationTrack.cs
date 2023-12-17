@@ -29,6 +29,34 @@ namespace IONET.Core.Animation
         /// </summary>
         public List<IOKeyFrame> KeyFrames { get; internal set; } = new List<IOKeyFrame>();
 
+        public IOAnimationTrack() { }
+
+        public IOAnimationTrack(IOAnimationTrackType channelType)
+        {
+            ChannelType = channelType;
+        }
+
+        public void InsertKeyframe(float frame, float value, float inSlope, float outSlope)
+        {
+            var key = KeyFrames.FirstOrDefault(x => x.Frame == frame);
+            if (key != null)
+            {
+                ((IOKeyFrameHermite)key).Value = value;
+                ((IOKeyFrameHermite)key).TangentSlopeInput = inSlope;
+                ((IOKeyFrameHermite)key).TangentSlopeOutput = outSlope;
+            }
+            else
+            {
+                KeyFrames.Add(new IOKeyFrameHermite()
+                {
+                    Frame = frame,
+                    Value = value,
+                    TangentSlopeInput = inSlope,
+                    TangentSlopeOutput = outSlope
+                });
+            }
+        }
+
         public void InsertKeyframe(float frame, float value)
         {
             var key = KeyFrames.FirstOrDefault(x=> x.Frame == frame);

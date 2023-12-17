@@ -89,7 +89,7 @@ namespace IONET.GLTF
             }
 
             var skin = modelRoot.CreateSkin($"Armature");
-            skin.BindJoints(Joints.ToArray());
+            skin.Skeleton = Joints[0];
 
             foreach (var iomesh in iomodel.Meshes)
             {
@@ -106,6 +106,7 @@ namespace IONET.GLTF
                 //Rigging
                 if (iomesh.HasEnvelopes() && Joints.Count > 0)
                     node.Skin = skin;
+
                 //Todo vertex list should be created by polygon indices and re indexed
                 foreach (var iopoly in iomesh.Polygons)
                 {
@@ -156,9 +157,14 @@ namespace IONET.GLTF
                 }
             }
 
+            //bind joints last after all the mesh data is set
+            skin.BindJoints(Joints.ToArray());
+
             //Preview nodes
             void ViewNode(Node node, string level)
             {
+                Console.WriteLine($"{level} {node.Name}");
+
                 foreach (var child in node.VisualChildren)
                     ViewNode(child, level + "-");
             }

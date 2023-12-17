@@ -343,7 +343,9 @@ namespace IONET.Collada
                                     switch (jointInput.Semantic)
                                     {
                                         case Input_Semantic.JOINT:
-                                            bw.BoneName = srcs.GetNameValue(jointInput.source, index)[0];
+                                            string[] names = srcs.GetNameValue(jointInput.source, index);
+                                            if (names?.Length > 0)
+                                                bw.BoneName = names[0];
                                             break;
                                         case Input_Semantic.INV_BIND_MATRIX:
                                             var m = srcs.GetFloatValue(jointInput.source, index);
@@ -362,7 +364,8 @@ namespace IONET.Collada
                                 break;
                         }
                     }
-                    en.Weights.Add(bw);
+                    if (!string.IsNullOrEmpty(bw.BoneName))
+                        en.Weights.Add(bw);
                 }
 
                 envelopes.Add(en);
@@ -482,9 +485,12 @@ namespace IONET.Collada
                             //Get the real set ID
                             var set = input.Set - minSet;
 
-                            var index = p[i * stride + input.Offset];
+                            if (i * stride + input.Offset < p.Length)
+                            {
+                                var index = p[i * stride + input.Offset];
 
-                            ProcessInput(input.Semantic, input.source, set, vertex, geom.Mesh.Vertices, index, srcs, vertexEnvelopes);
+                                ProcessInput(input.Semantic, input.source, set, vertex, geom.Mesh.Vertices, index, srcs, vertexEnvelopes);
+                            }
                         }
 
                         poly.Indicies.Add(mesh.Vertices.Count);

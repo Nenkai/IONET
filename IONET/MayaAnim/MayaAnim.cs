@@ -225,13 +225,17 @@ namespace IONET.MayaAnim
 
                                             if (key.intan == "fixed" || key.intan == "spline")
                                             {
-                                                key.t1 = float.Parse(keyArgs[7]);
-                                                key.w1 = float.Parse(keyArgs[8]);
+                                                if (keyArgs.Length > 7)
+                                                    key.t1 = float.Parse(keyArgs[7]);
+                                                if (keyArgs.Length > 8)
+                                                    key.w1 = float.Parse(keyArgs[8]);
                                             }
                                             if ((key.outtan == "fixed" || key.intan == "spline") && keyArgs.Length > 9)
                                             {
-                                                key.t2 = float.Parse(keyArgs[9]);
-                                                key.w2 = float.Parse(keyArgs[10]);
+                                                if (keyArgs.Length > 9)
+                                                    key.t2 = float.Parse(keyArgs[9]);
+                                                if (keyArgs.Length > 10)
+                                                    key.w2 = float.Parse(keyArgs[10]);
                                             }
 
                                             currentData.keys.Add(key);

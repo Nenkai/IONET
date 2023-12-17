@@ -16,6 +16,7 @@ using IONET.Collada.FX.Profiles.COMMON;
 using System.Xml;
 using SharpGLTF.Schema2;
 using IONET.Collada.Core.Animation;
+using IONET.Core.Animation;
 
 namespace IONET.GLTF
 {
@@ -70,15 +71,98 @@ namespace IONET.GLTF
             //Animation handling
             foreach (var anim in model.LogicalAnimations)
             {
+                float rate = 24;
+                float frameCount = anim.Duration * rate;
+
+                IOAnimation ioanim = new IOAnimation();
+                ioanim.Name = anim.Name;
+                scene.Animations.Add(ioanim);
+
                 foreach (var channel in anim.Channels)
                 {
                     if (channel.TargetNode == null)
                         continue;
 
+                    IOAnimation group = new IOAnimation();
+                    group.Name = channel.TargetNode.Name;
+                    ioanim.Groups.Add(group);
+
                     var trans = channel.GetTranslationSampler();
                     var rotation = channel.GetRotationSampler(); //in quat
                     var scale = channel.GetScaleSampler();
-                    var name = channel.TargetNode.Name;
+
+                    void CreateVec4Track(IAnimationSampler<Quaternion> quat, IOAnimationTrackType type)
+                    {
+                        IOAnimationTrack X = new IOAnimationTrack(type + 0);
+                        IOAnimationTrack Y = new IOAnimationTrack(type + 1);
+                        IOAnimationTrack Z = new IOAnimationTrack(type + 2);
+                        IOAnimationTrack W = new IOAnimationTrack(type + 2);
+                        group.Tracks.Add(X);
+                        group.Tracks.Add(Y);
+                        group.Tracks.Add(Z);
+                        group.Tracks.Add(W);
+
+                        switch (quat.InterpolationMode)
+                        {
+                            case AnimationInterpolationMode.CUBICSPLINE:
+                                foreach (var linear in quat.GetCubicKeys())
+                                {
+                                    var kf = linear.Value;
+                                    X.InsertKeyframe(linear.Key * rate, kf.Value.X, kf.TangentIn.X, kf.TangentOut.X);
+                                    Y.InsertKeyframe(linear.Key * rate, kf.Value.Y, kf.TangentIn.Y, kf.TangentOut.Y);
+                                    Z.InsertKeyframe(linear.Key * rate, kf.Value.Z, kf.TangentIn.Z, kf.TangentOut.Z);
+                                    W.InsertKeyframe(linear.Key * rate, kf.Value.W, kf.TangentIn.W, kf.TangentOut.W);
+                                }
+                                break;
+                            default:
+                                foreach (var linear in quat.GetLinearKeys())
+                                {
+                                    X.InsertKeyframe(linear.Key * rate, linear.Value.X);
+                                    Y.InsertKeyframe(linear.Key * rate, linear.Value.Y);
+                                    Z.InsertKeyframe(linear.Key * rate, linear.Value.Z);
+                                    W.InsertKeyframe(linear.Key * rate, linear.Value.W);
+                                }
+                                break;
+                        }
+                    }
+
+                    void CreateVec3Track(IAnimationSampler<Vector3> vec3, IOAnimationTrackType type)
+                    {
+                        IOAnimationTrack X = new IOAnimationTrack(type + 0);
+                        IOAnimationTrack Y = new IOAnimationTrack(type + 1);
+                        IOAnimationTrack Z = new IOAnimationTrack(type + 2);
+                        group.Tracks.Add(X);
+                        group.Tracks.Add(Y);
+                        group.Tracks.Add(Z);
+
+                        switch (vec3.InterpolationMode)
+                        {
+                            case AnimationInterpolationMode.CUBICSPLINE:
+                                foreach (var linear in vec3.GetCubicKeys())
+                                {
+                                    var kf = linear.Value;
+                                    X.InsertKeyframe(linear.Key * rate, kf.Value.X, MathF.Atan(kf.TangentIn.X), MathF.Atan(kf.TangentOut.X));
+                                    Y.InsertKeyframe(linear.Key * rate, kf.Value.Y, MathF.Atan(kf.TangentIn.Y), MathF.Atan(kf.TangentOut.Y));
+                                    Z.InsertKeyframe(linear.Key * rate, kf.Value.Z, MathF.Atan(kf.TangentIn.Z), MathF.Atan(kf.TangentOut.Z));
+                                }
+                                break;
+                            default:
+                                foreach (var linear in vec3.GetLinearKeys())
+                                {
+                                    X.InsertKeyframe(linear.Key * rate, linear.Value.X);
+                                    Y.InsertKeyframe(linear.Key * rate, linear.Value.Y);
+                                    Z.InsertKeyframe(linear.Key * rate, linear.Value.Z);
+                                }
+                                break;
+                        }
+                    }
+
+                    if (trans != null)
+                        CreateVec3Track(trans, IOAnimationTrackType.PositionX);
+                    if (scale != null)
+                        CreateVec3Track(scale, IOAnimationTrackType.ScaleX);
+                    if (rotation != null)
+                        CreateVec4Track(rotation, IOAnimationTrackType.QuatX);
                 }
             }
 
