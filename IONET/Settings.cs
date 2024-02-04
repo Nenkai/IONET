@@ -102,7 +102,7 @@ namespace IONET
         /// <summary>
         /// 
         /// </summary>
-        public bool ExportAnimations { get; set; }
+        public bool ExportAnimations { get; set; } = true;
 
         /// <summary>
         /// 

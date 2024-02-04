@@ -14,6 +14,9 @@ using IONET.Collada.FX.Materials;
 using IONET.Collada.FX.Rendering;
 using IONET.Collada.FX.Profiles.COMMON;
 using System.Xml;
+using IONET.Core.Animation;
+using IONET.Collada.Core.Animation;
+using IONET.Collada.Core.Data_Flow;
 
 namespace IONET.Collada
 {
@@ -55,14 +58,18 @@ namespace IONET.Collada
             if (_collada.Library_Materials != null)
             {
                 foreach(var mat in _collada.Library_Materials.Material)
-                {
                     scene.Materials.Add(LoadMaterial(mat));
-                }
             }
-            
+
+            // Load animations
+            if (_collada.Library_Animations != null)
+            {
+                foreach (var anim in _collada.Library_Animations.Animation)
+                    scene.Animations.Add(LoadAnimation(anim));
+            }
 
             // look through all visual scene
-            foreach(var colscene in _collada.Library_Visual_Scene.Visual_Scene)
+            foreach (var colscene in _collada.Library_Visual_Scene.Visual_Scene)
             {
                 // treat each scene as a "model"
                 IOModel model = new IOModel()
@@ -151,7 +158,207 @@ namespace IONET.Collada
 
             return jointIDs.Count > 0;
         }
-        
+
+        private IOAnimation LoadAnimation(Animation anim)
+        {
+            IOAnimation ioanim = new IOAnimation();
+            ioanim.Name = anim.Name;
+
+            foreach (var collada_anim in anim.Animations)
+            {
+                var ioanim_group = ioanim.Groups.FirstOrDefault(x => x.Name == collada_anim.Name);
+                if (ioanim_group == null)
+                {
+                    ioanim_group = new IOAnimation() { Name = collada_anim.Name };
+                    ioanim.Groups.Add(ioanim_group);
+                }
+                ioanim_group.Tracks.AddRange(LoadTrackAnimation(ioanim, collada_anim));
+            }
+            return ioanim;
+        }
+
+        private List<IOAnimationTrack> LoadTrackAnimation(IOAnimation group, Animation anim)
+        {
+            List<IOAnimationTrack> tracks = new List<IOAnimationTrack>();
+            foreach (var channel in anim.Channel)
+            {
+                group.Name = channel.Target.Split("/").FirstOrDefault();
+                string target = channel.Target.Split("/").LastOrDefault();
+
+                IOAnimationTrack track = new IOAnimationTrack();
+                tracks.Add(track);
+
+                switch (target)
+                {
+                    case "location.X": track.ChannelType = IOAnimationTrackType.PositionX; break;
+                    case "location.Y": track.ChannelType = IOAnimationTrackType.PositionY; break;
+                    case "location.Z": track.ChannelType = IOAnimationTrackType.PositionZ; break;
+                    case "rotationX.ANGLE": track.ChannelType = IOAnimationTrackType.RotationEulerX; break;
+                    case "rotationY.ANGLE": track.ChannelType = IOAnimationTrackType.RotationEulerY; break;
+                    case "rotationZ.ANGLE": track.ChannelType = IOAnimationTrackType.RotationEulerZ; break;
+                    case "scale.X": track.ChannelType = IOAnimationTrackType.ScaleX; break;
+                    case "scale.Y": track.ChannelType = IOAnimationTrackType.ScaleY; break;
+                    case "scale.Z": track.ChannelType = IOAnimationTrackType.ScaleZ; break;
+                    case "transform": track.ChannelType = IOAnimationTrackType.TransformMatrix4x4; break;
+                    default: //not supported track type, skip loading it
+                        continue;
+                }
+
+                Vector2[] GetTangents(Source source)
+                {
+                    Vector2[] values = new Vector2[source.Technique_Common.Accessor.Count];
+                    var data = source.Float_Array.GetValues();
+
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        int index = i * (int)source.Technique_Common.Accessor.Stride;
+
+                        //vector 2 type
+                        if (source.Technique_Common.Accessor.Stride == 2)
+                        {
+                            values[i] = new Vector2(data[index + 0], data[index + 1]);
+                        }
+                        else if (source.Technique_Common.Accessor.Stride == 1) //one slope (hermite)
+                        {
+                            values[i] = new Vector2(data[index], data[index]);
+                        }
+                        else
+                            throw new Exception();
+                    }
+                   
+                    return values;
+                }
+
+
+                //Get sampler
+                var sampler = anim.Sampler.FirstOrDefault(x => $"#{x.ID}" == channel.Source);
+
+                float[] time = new float[0];
+                object[] values = new object[0];
+                string[] interpolation = new string[0];
+                Vector2[] tangent_in = new Vector2[0];
+                Vector2[] tangent_out = new Vector2[0];
+
+                foreach (var input in sampler.Input)
+                {
+                    var source = anim.Source.FirstOrDefault(x => $"#{x.ID}" == input.source);
+                    if (source == null)
+                        throw new Exception();
+
+                    switch (input.Semantic)
+                    {
+                        case Input_Semantic.INPUT:
+                            time = source.Float_Array.GetValues();
+                            break;
+                        case Input_Semantic.OUTPUT:
+                            values = new object[source.Technique_Common.Accessor.Count];
+
+                            if (source.Technique_Common.Accessor.Stride == 16) //matrix4x4
+                            {
+                                var data = source.Float_Array.GetValues();
+
+                                for (int i = 0; i < values.Length; i++)
+                                {
+                                    int index = i * 16;
+                                    values[i] = new float[16]
+                                    {
+                                         data[index+0],  data[index+1], data[index+2] ,data[index+3],
+                                         data[index+4],  data[index+5], data[index+6], data[index+7],
+                                         data[index+8],  data[index+9], data[index+10],data[index+11],
+                                         data[index+12], data[index+13],data[index+14],data[index+15],
+                                    };
+                                }
+                            }
+                            else if (source.Technique_Common.Accessor.Stride == 1) //raw float
+                            {
+                                var data = source.Float_Array.GetValues();
+
+                                for (int i = 0; i < values.Length; i++)
+                                    values[i] = data[i];
+                            }
+                            else
+                                throw new Exception($"Unexpected animation stride! {source.Technique_Common.Accessor.Stride}");
+                            break;
+                        case Input_Semantic.INTERPOLATION:
+                            interpolation = source.Name_Array.GetValues();
+                            break;
+                        case Input_Semantic.IN_TANGENT:
+                            tangent_in = GetTangents(source);
+                            break;
+                        case Input_Semantic.OUT_TANGENT:
+                            tangent_out = GetTangents(source);
+                            break;
+                    }
+                }
+
+                //Ensure all values match up for each keyframe
+                if (time.Length != values.Length && values.Length != interpolation.Length)
+                    throw new Exception();
+
+                float BezierToHermiteTangent(Vector2 tangent)
+                {
+                    return tangent.X;
+                }
+
+                float time_to_frame = 24f;
+
+                //Prepare and setup keyframes
+                for (int i = 0; i < time.Length; i++)
+                {
+                    float frame = (uint)(time[i] * time_to_frame);
+                    object value = null;
+
+                    if (values[i] is float)
+                        value = (float)values[i];
+                    if (values[i] is float[]) //matrix4x4
+                        value = (float[])values[i];
+
+                    switch (interpolation[i])
+                    {
+                        case "HERMITE":
+                            track.KeyFrames.Add(new IOKeyFrameHermite()
+                            {
+                                Frame = frame,
+                                Time = time[i],
+                                Value = value,
+                                TangentSlopeInput = tangent_in[i].X,
+                                TangentSlopeOutput = tangent_out[i].X,
+                            });
+                            break;
+                        case "BEZIER":
+                            track.KeyFrames.Add(new IOKeyFrameHermite()
+                            {
+                                Frame = frame,
+                                Time = time[i],
+                                Value = value,
+                                TangentSlopeInput = BezierToHermiteTangent(tangent_in[i]),
+                                TangentSlopeOutput = BezierToHermiteTangent(tangent_out[i]),
+                            });
+                            break;
+                        case "STEP":
+                            track.KeyFrames.Add(new IOKeyFrameStep()
+                            {
+                                Frame = frame,
+                                Time = time[i],
+                                Value = value,
+                            });
+                            break;
+                        default: //linear and other types
+                            track.KeyFrames.Add(new IOKeyFrame()
+                            {
+                                Frame = frame,
+                                Time = time[i],
+                                Value = value,
+                            });
+                            break;
+                    }
+                }
+            }
+            return tracks;
+        }
+
+
+
         /// <summary>
         /// 
         /// </summary>

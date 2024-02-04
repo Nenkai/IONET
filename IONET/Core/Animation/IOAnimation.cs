@@ -127,5 +127,10 @@ namespace IONET.Core.Animation
                 Console.WriteLine($"ApplySegmentScaleCompensate {track.ChannelType} {v}");
             }
         }
+
+        public override string ToString()
+        {
+            return $"{Name}";
+        }
     }
 }

@@ -38,6 +38,16 @@ namespace IONET.Core.Animation
                 Value = this.Value,
             };
         }
+
+        public override string ToString()
+        {
+            return $"{Frame} {Value}";
+        }
+    }
+
+    public class IOKeyFrameStep : IOKeyFrame
+    {
+
     }
 
     public class IOKeyFrameHermite : IOKeyFrame
@@ -86,6 +96,11 @@ namespace IONET.Core.Animation
                 TangentWeightInput = this.TangentWeightInput,
                 TangentWeightOutput = this.TangentWeightOutput,
             };
+        }
+
+        public override string ToString()
+        {
+            return $"{Frame} {Value} {TangentSlopeInput} {TangentSlopeOutput}";
         }
     }
 

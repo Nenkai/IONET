@@ -36,6 +36,11 @@ namespace IONET.Core.Animation
             ChannelType = channelType;
         }
 
+        public override string ToString()
+        {
+            return $"{ChannelType} Keys: " + string.Join("|", this.KeyFrames);
+        }
+
         public void InsertKeyframe(float frame, float value, float inSlope, float outSlope)
         {
             var key = KeyFrames.FirstOrDefault(x => x.Frame == frame);
