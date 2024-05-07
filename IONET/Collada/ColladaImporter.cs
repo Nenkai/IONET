@@ -480,7 +480,7 @@ namespace IONET.Collada
                     {
                         var materialInstance = c.Bind_Material[0].Technique_Common.Instance_Material[0];
                         foreach (var poly in geom.Polygons) {
-                            poly.MaterialName = materialInstance.Target.Replace("#", "");
+                            poly.MaterialName = poly.MaterialName.Replace("#", "");
                         }
                     }
                 }
