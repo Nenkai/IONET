@@ -23,6 +23,7 @@ using IONET.Collada.FX.Texturing;
 using IONET.Collada.FX.Rendering;
 using IONET.Collada.Core.Parameters;
 using System.Xml;
+using IONET.Collada.Physics.Analytical_Shape;
 
 namespace IONET.Collada
 {
@@ -98,10 +99,17 @@ namespace IONET.Collada
 
             // export models nodes
             List<Node> nodes = new List<Node>();
-            foreach(var mod in scene.Models)
-                nodes.AddRange(ProcessModel(scene, mod));
+            if (scene.Nodes.Count > 0) //custom node tree
+            {
+                foreach (var mod in scene.Models)
+                    nodes.AddRange(ProcessNodeTree(scene, mod));
+            }
+            else
+            {
+                foreach (var mod in scene.Models)
+                    nodes.AddRange(ProcessModel(scene, mod));
+            }
             visscene.Node = nodes.ToArray();
-
 
             // instance the scene
             var scene_instance = new Instance_Visual_Scene();
@@ -112,7 +120,6 @@ namespace IONET.Collada
 
             _collada.Scene = new Scene();
             _collada.Scene.Visual_Scene = scene_instance;
-
             
             // initialize asset
             InitAsset();
@@ -317,6 +324,99 @@ namespace IONET.Collada
         /// 
         /// </summary>
         /// <param name="model"></param>
+        private List<Node> ProcessNodeTree(IOScene scene, IOModel model)
+        {
+            List<Node> nodes = new List<Node>();
+
+            List<string> bones = model.Meshes.SelectMany(x => x.Vertices.SelectMany(x => x.Envelope.Weights.Select(x => x.BoneName))).ToList();
+
+            foreach (var n in scene.Nodes)
+                if (n.Parent == null)
+                    nodes.Add(ProcessNode(n, scene, model, bones));
+
+            return nodes;
+        }
+
+        private Node ProcessNode(IONode node, IOScene scene, IOModel model, List<string> bones)
+        {
+            Node n = new Node()
+            {
+                Name = node.Name,
+                sID = node.Name,
+                ID = node.Name,
+                Matrix = new Matrix[] { new Matrix() },
+                Type = Node_Type.NODE
+            };
+
+            if (node.IsJoint || bones.Contains(n.Name))
+                n.Type = Node_Type.JOINT;
+
+            if (node.Mesh != null)
+                n = ProcessMesh(node.Mesh, model, node.Parent);
+
+            if (IsNodeAnimated(scene.Animations, n.ID))
+            {
+                Matrix4x4.Decompose(node.LocalTransform, out Vector3 scale, out Quaternion rotation, out Vector3 translation);
+
+                var pos = translation;
+                var rot = ToEulerAngles(rotation);
+                var sca = scale;
+               
+
+                n.Matrix = null;
+                n.Translate = new Translate[1];
+                n.Rotate = new Rotate[3];
+                n.Scale = new Scale[1];
+
+                n.Translate[0] = new Translate() { sID = "location", Value_As_String = $"{pos.X} {pos.Y} {pos.Z}", };
+                n.Rotate[0] = new Rotate() { sID = "rotationZ", Value_As_String = $"0 0 1 {MathExt.RadToDeg(rot.Z)}", };
+                n.Rotate[1] = new Rotate() { sID = "rotationY", Value_As_String = $"0 1 0 {MathExt.RadToDeg(rot.Y)}", };
+                n.Rotate[2] = new Rotate() { sID = "rotationX", Value_As_String = $"1 0 0 {MathExt.RadToDeg(rot.X)}", };
+                n.Scale[0] = new Scale() { sID = "scale", Value_As_String = $"{sca.X} {sca.Y} {sca.Z}", };
+            }
+            else
+                n.Matrix[0].FromMatrix(node.LocalTransform);
+
+            n.node = new Node[node.Children.Length];
+
+            int childIndex = 0;
+            foreach (IONode child in node.Children)
+                n.node[childIndex++] = ProcessNode(child, scene, model, bones);
+
+            return n;
+        }
+
+        public static float Clamp(float v, float min, float max)
+        {
+            if (v < min) return min;
+            if (v > max) return max;
+            return v;
+        }
+
+        public static Vector3 ToEulerAngles(Quaternion q)
+        {
+            Matrix4x4 mat = Matrix4x4.CreateFromQuaternion(q);
+            float x, y, z;
+            y = (float)Math.Asin(Clamp(mat.M13, -1, 1));
+
+            if (Math.Abs(mat.M13) < 0.99999)
+            {
+                x = (float)Math.Atan2(-mat.M23, mat.M33);
+                z = (float)Math.Atan2(-mat.M12, mat.M11);
+            }
+            else
+            {
+                x = (float)Math.Atan2(mat.M32, mat.M22);
+                z = 0;
+            }
+            return new Vector3(x, y, z) * -1;
+        }
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="model"></param>
         private List<Node> ProcessModel(IOScene scene, IOModel model)
         {
             List<Node> nodes = new List<Node>();
@@ -388,12 +488,15 @@ namespace IONET.Collada
         /// <returns></returns>
         private Node ProcessMesh(IOMesh mesh, IOModel model, IOBone rootBone)
         {
+            string id = GetUniqueID(mesh.Name);
+
             Node n = new Node()
             {
                 Name = mesh.Name,
-                sID = mesh.Name,
-                ID = mesh.Name,
-                Type = Node_Type.NODE
+                sID = id,
+                ID = id,
+                Matrix = new Matrix[] { new Matrix() },
+                Type = Node_Type.NODE,
             };
 
             var materials = mesh.Polygons.Select(e => e.MaterialName).Distinct();

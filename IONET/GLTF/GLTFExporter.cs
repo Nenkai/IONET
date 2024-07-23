@@ -16,6 +16,7 @@ using System.Xml;
 using SharpGLTF.Schema2;
 using SharpGLTF.Memory;
 using IONET.Collada.B_Rep.Surfaces;
+using IONET.Core.Animation;
 
 namespace IONET.GLTF
 {
@@ -90,6 +91,11 @@ namespace IONET.GLTF
 
             var skin = modelRoot.CreateSkin($"Armature");
             skin.Skeleton = Joints[0];
+
+            foreach (var ioanim in ioscene.Animations)
+            {
+                SetAnimationData(modelRoot, ioanim, Joints);
+            }
 
             foreach (var iomesh in iomodel.Meshes)
             {
@@ -175,6 +181,39 @@ namespace IONET.GLTF
             {
                 JsonIndented = true,
             });
+        }
+
+        private void SetAnimationData(ModelRoot modelRoot, IOAnimation ioanim, List<Node> nodes)
+        {
+            var anim = modelRoot.CreateAnimation(ioanim.Name);
+
+            foreach (var group in ioanim.Groups)
+            {
+                var node = nodes.FirstOrDefault(x => x.Name == group.Name);
+                if (node == null)
+                    continue;
+
+                Dictionary<float, Vector3> translation = new Dictionary<float, Vector3>();
+                Dictionary<float, Quaternion> rotation = new Dictionary<float, Quaternion>();
+                Dictionary<float, Vector3> scale = new Dictionary<float, Vector3>();
+
+
+                foreach (var track in group.Tracks)
+                {
+                    switch (track.KeyFrames.Count)
+                    {
+
+                    }
+                }
+
+                if (translation.Count > 0)
+                    anim.CreateTranslationChannel(node, translation);
+                if (rotation.Count > 0)
+                    anim.CreateRotationChannel(node, rotation);
+                if (scale.Count > 0)
+                    anim.CreateScaleChannel(node, translation);
+            }
+
         }
 
         private void SetIndexData(MeshPrimitive primitive, List<int> indices)

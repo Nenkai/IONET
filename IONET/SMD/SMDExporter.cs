@@ -25,7 +25,6 @@ namespace IONET.SMD
 
                 w.WriteLine("version 1");
 
-
                 var bones = model.Skeleton.BreathFirstOrder();
 
                 Dictionary<string, int> nodeToID = new Dictionary<string, int>();
@@ -47,13 +46,44 @@ namespace IONET.SMD
 
                 w.WriteLine("skeleton");
 
-                w.WriteLine("time 0");
-                index = 0;
-                foreach (var b in bones)
+                if (scene.Animations.Count > 0)
                 {
-                    // since we can't store scale we have to improvise and extract the world scale
-                    Matrix4x4.Decompose(b.WorldTransform, out Vector3 uniformScale, out Quaternion rot, out Vector3 pos);
-                    w.WriteLine($"{index++} {b.TranslationX * uniformScale.X} {b.TranslationY * uniformScale.Y} {b.TranslationZ * uniformScale.Z} {b.RotationEuler.X} {b.RotationEuler.Y} {b.RotationEuler.Z}");
+                    for (int i = 0; i < scene.Animations[0].GetFrameCount(); i++)
+                    {
+                        w.WriteLine($"time {i}");
+                        foreach (var group in scene.Animations[0].Groups)
+                        {
+                            if (!nodeToID.ContainsKey(group.Name))
+                                continue;
+
+                            var idx = nodeToID[group.Name];
+                            var b = bones.FirstOrDefault(x => x.Name == group.Name);
+
+                            var pos = new Vector3(b.TranslationX, b.TranslationY, b.TranslationZ);
+                            var rot = new Vector3(b.RotationEuler.X, b.RotationEuler.Y, b.RotationEuler.Z);
+
+                            foreach (var track in group.Tracks)
+                            {
+                                switch (track.ChannelType)
+                                {
+                                    case Core.Animation.IOAnimationTrackType.PositionX: pos.X = track.GetFrameValue(i); break;
+                                    case Core.Animation.IOAnimationTrackType.PositionY: pos.Y = track.GetFrameValue(i); break;
+                                    case Core.Animation.IOAnimationTrackType.PositionZ: pos.Z = track.GetFrameValue(i); break;
+                                    case Core.Animation.IOAnimationTrackType.RotationEulerX: rot.X = track.GetFrameValue(i); break;
+                                    case Core.Animation.IOAnimationTrackType.RotationEulerY: rot.Y = track.GetFrameValue(i); break;
+                                    case Core.Animation.IOAnimationTrackType.RotationEulerZ: rot.Z = track.GetFrameValue(i); break;
+                                }
+                            }
+                            w.WriteLine($"{idx} {pos.X} {pos.Y} {pos.Z} {rot.X} {rot.Y} {rot.Z}");
+                        }
+                    }
+                }
+                else
+                {
+                    w.WriteLine("time 0");
+                    index = 0;
+                    foreach (var b in bones)
+                        w.WriteLine($"{index++} {b.TranslationX} {b.TranslationY} {b.TranslationZ} {b.RotationEuler.X} {b.RotationEuler.Y} {b.RotationEuler.Z}");
                 }
 
                 foreach (var b in model.Meshes)

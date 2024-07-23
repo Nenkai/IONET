@@ -23,5 +23,6 @@ namespace IONET.Core.Animation
         ScaleZ,
         TransformMatrix4x4,
         NodeVisibility,
+        MorphWeight,
     }
 }

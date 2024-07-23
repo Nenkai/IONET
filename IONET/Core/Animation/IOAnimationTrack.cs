@@ -62,6 +62,27 @@ namespace IONET.Core.Animation
             }
         }
 
+        public void InsertKeyframe(float frame, float[] value, float[] inSlope, float[] outSlope)
+        {
+            var key = KeyFrames.FirstOrDefault(x => x.Frame == frame);
+            if (key != null)
+            {
+                ((IOKeyFrameHermite)key).Value = value;
+                ((IOKeyFrameHermite)key).TangentSlopeInput = inSlope[0]; //todo
+                ((IOKeyFrameHermite)key).TangentSlopeOutput = outSlope[0]; //todo
+            }
+            else
+            {
+                KeyFrames.Add(new IOKeyFrameHermite()
+                {
+                    Frame = frame,
+                    Value = value,
+                    TangentSlopeInput = inSlope[0],
+                    TangentSlopeOutput = outSlope[0]
+                });
+            }
+        }
+
         public void InsertKeyframe(float frame, float value)
         {
             var key = KeyFrames.FirstOrDefault(x=> x.Frame == frame);
@@ -74,6 +95,21 @@ namespace IONET.Core.Animation
                     Frame = frame,
                     Value = value,
                 }); 
+            }
+        }
+
+        public void InsertKeyframe(float frame, float[] value)
+        {
+            var key = KeyFrames.FirstOrDefault(x => x.Frame == frame);
+            if (key != null)
+                key.Value = value;
+            else
+            {
+                KeyFrames.Add(new IOKeyFrame()
+                {
+                    Frame = frame,
+                    Value = value,
+                });
             }
         }
 

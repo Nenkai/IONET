@@ -17,6 +17,7 @@ using System.Xml;
 using IONET.Core.Animation;
 using IONET.Collada.Core.Animation;
 using IONET.Collada.Core.Data_Flow;
+using IONET.Collada.B_Rep.Surfaces;
 
 namespace IONET.Collada
 {
@@ -46,7 +47,6 @@ namespace IONET.Collada
             // generate a new scene
             IOScene scene = new IOScene();
 
-
             // load collada file
             _collada = Collada.LoadFromFile(filePath);
 
@@ -65,7 +65,8 @@ namespace IONET.Collada
             if (_collada.Library_Animations != null)
             {
                 foreach (var anim in _collada.Library_Animations.Animation)
-                    scene.Animations.Add(LoadAnimation(anim));
+                    if (anim.Animations != null)
+                        scene.Animations.Add(LoadAnimation(anim));
             }
 
             // look through all visual scene
@@ -91,9 +92,13 @@ namespace IONET.Collada
 
                 // load nodes
                 foreach (var v in colscene.Node)
-                {
-                    LoadNodes(v, null, parentMatrix, model, skelIDs);
-                }
+                    LoadNodes(v, null, parentMatrix, scene);
+
+                //Load meshes from nodes
+                model.Meshes.AddRange(scene.Nodes.Where(x => x.Mesh != null).Select(x => x.Mesh));
+
+                //Load bones from nodes
+                scene.LoadSkeletonFromNodes(model, skelIDs);
 
                 // add model
                 scene.Models.Add(model);
@@ -357,21 +362,20 @@ namespace IONET.Collada
             return tracks;
         }
 
-
-
         /// <summary>
         /// 
         /// </summary>
         /// <param name="n"></param>
         /// <param name="bones"></param>
-        private IOBone LoadNodes(Node n, IOBone parent, Matrix4x4 parentMatrix, IOModel model, List<string> skeletonIds)
+        private IONode LoadNodes(Node n, IONode parent, Matrix4x4 parentMatrix, IOScene scene)
         {
             // create bone to represent node
-            IOBone bone = new IOBone()
+            IONode bone = new IONode()
             {
                 Name = n.Name,
                 AltID = n.sID
             };
+            scene.Nodes.Add(bone);
 
             // load matrix
             if (n.Matrix != null && n.Matrix.Length >= 0)
@@ -430,15 +434,10 @@ namespace IONET.Collada
             if (parent != null)
                 parent.AddChild(bone);
 
-            bool isBone = !string.IsNullOrEmpty(bone.Name) && skeletonIds.Contains(bone.Name) || (n.Type == Node_Type.JOINT);
-
-            var p = isBone ? bone : null;
-
             // load children
             if (n.node != null)
                 foreach (var v in n.node)
-                    LoadNodes(v, p, bone.LocalTransform * parentMatrix, model, skeletonIds);
-
+                    LoadNodes(v, bone, bone.LocalTransform * parentMatrix, scene);
 
             // load instanced geometry
             if (n.Instance_Geometry != null)
@@ -446,9 +445,13 @@ namespace IONET.Collada
                 foreach (var g in n.Instance_Geometry)
                 {
                     var geom = LoadGeometryFromID(n, g.URL);
+                    if (geom == null)
+                        continue;
+
                     geom.TransformVertices(bone.LocalTransform * parentMatrix);
                     geom.ParentBone = bone;
-                    model.Meshes.Add(geom);
+
+                    bone.Mesh = geom;
 
                     //Bind materials
                     if (g.Bind_Material?.Length > 0) {
@@ -473,7 +476,8 @@ namespace IONET.Collada
                     var geom = LoadGeometryControllerFromID(n, c.URL);
                     geom.TransformVertices(bone.LocalTransform * parentMatrix);
                     geom.ParentBone = bone;
-                    model.Meshes.Add(geom);
+
+                    bone.Mesh = geom;
 
                     //Bind materials
                     if (c.Bind_Material?.Length > 0)
@@ -484,15 +488,6 @@ namespace IONET.Collada
                         }
                     }
                 }
-            }
-
-            // detect skeleton
-            if ((!string.IsNullOrEmpty(bone.Name) && skeletonIds.Contains(bone.Name)) ||
-                (n.Type == Node_Type.JOINT && parent == null))
-            {
-                model.Skeleton.RootBones.Add(bone);
-
-                bone.LocalTransform *= parentMatrix;
             }
 
             // complete
@@ -709,7 +704,10 @@ namespace IONET.Collada
             }
 
             if (geom.Mesh.Triangles == null && geom.Mesh.Polylist == null)
-                throw new Exception("Model must use triangles!");
+            {
+                return null;
+                // throw new Exception("Model must use triangles!");
+            }
 
             //TODO: collada trifan
 

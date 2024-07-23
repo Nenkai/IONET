@@ -17,6 +17,7 @@ using System.Xml;
 using SharpGLTF.Schema2;
 using IONET.Collada.Core.Animation;
 using IONET.Core.Animation;
+using System.Runtime.Serialization.Json;
 
 namespace IONET.GLTF
 {
@@ -83,13 +84,18 @@ namespace IONET.GLTF
                     if (channel.TargetNode == null)
                         continue;
 
-                    IOAnimation group = new IOAnimation();
-                    group.Name = channel.TargetNode.Name;
-                    ioanim.Groups.Add(group);
+                    IOAnimation group = ioanim.Groups.FirstOrDefault(x => x.Name == channel.TargetNode.Name);
+                    if (group == null)
+                    {
+                        group = new IOAnimation();
+                        group.Name = channel.TargetNode.Name;
+                        ioanim.Groups.Add(group);
+                    }             
 
                     var trans = channel.GetTranslationSampler();
                     var rotation = channel.GetRotationSampler(); //in quat
                     var scale = channel.GetScaleSampler();
+                    var morph = channel.GetMorphSampler();
 
                     void CreateVec4Track(IAnimationSampler<Quaternion> quat, IOAnimationTrackType type)
                     {
@@ -157,12 +163,36 @@ namespace IONET.GLTF
                         }
                     }
 
+                    void CreateFloatArrayTrack(IAnimationSampler<float[]> v, IOAnimationTrackType type)
+                    {
+                        IOAnimationTrack X = new IOAnimationTrack(type);
+                        group.Tracks.Add(X);
+
+                        switch (v.InterpolationMode)
+                        {
+                            case AnimationInterpolationMode.CUBICSPLINE:
+                                foreach (var linear in v.GetCubicKeys())
+                                {
+                                    X.InsertKeyframe(linear.Key * rate, linear.Value.Value, linear.Value.TangentIn, linear.Value.TangentOut);
+                                }
+                                break;
+                            default:
+                                foreach (var linear in v.GetLinearKeys())
+                                {
+                                    X.InsertKeyframe(linear.Key * rate, linear.Value);
+                                }
+                                break;
+                        }
+                    }
+
                     if (trans != null)
                         CreateVec3Track(trans, IOAnimationTrackType.PositionX);
                     if (scale != null)
                         CreateVec3Track(scale, IOAnimationTrackType.ScaleX);
                     if (rotation != null)
                         CreateVec4Track(rotation, IOAnimationTrackType.QuatX);
+                    if (morph != null)
+                        CreateFloatArrayTrack(morph, IOAnimationTrackType.MorphWeight);
                 }
             }
 
