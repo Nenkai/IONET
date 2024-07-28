@@ -54,7 +54,7 @@ namespace IONET.Core
         {
             Dictionary<string, string> nameToName = new Dictionary<string, string>();
 
-            foreach(var mat in Materials)
+            foreach (var mat in Materials)
             {
                 var sanatize = Regex.Replace(mat.Name.Trim(), @"\s+", "_").Replace("#", "");
                 nameToName.Add(mat.Name, sanatize);
@@ -71,13 +71,15 @@ namespace IONET.Core
         public void LoadSkeletonFromNodes(IOModel model)
         {
             foreach (var node in this.Nodes)
-                LoadSkeletonFromNodes(node, null, Matrix4x4.Identity, this, model, model.GetSkinnedBoneList());
+                if (node.Parent == null)
+                    LoadSkeletonFromNodes(node, null, Matrix4x4.Identity, this, model, model.GetSkinnedBoneList());
         }
 
         public void LoadSkeletonFromNodes(IOModel model, List<string> skeletonIds)
         {
             foreach (var node in this.Nodes)
-                LoadSkeletonFromNodes(node, null, Matrix4x4.Identity, this, model, skeletonIds);
+                if (node.Parent == null)
+                    LoadSkeletonFromNodes(node, null, Matrix4x4.Identity, this, model, skeletonIds);
         }
 
         public void LoadSkeletonFromNodes(IONode bone, IONode parent, Matrix4x4 parentMatrix, IOScene scene, IOModel model, List<string> skeletonIds)
@@ -106,7 +108,7 @@ namespace IONET.Core
         public void PrintNodeHierachy()
         {
             foreach (var n in this.Nodes)
-                if (n.Parent  == null)
+                if (n.Parent == null)
                     PrintNode(n);
         }
 
@@ -118,7 +120,7 @@ namespace IONET.Core
                 Console.WriteLine($"{ind}Light {parent.Name}");
             else if (parent.Camera != null)
                 Console.WriteLine($"{ind}Camera {parent.Name}");
-            else 
+            else
                 Console.WriteLine($"{ind}Node {parent.Name}");
 
             string inc = ind + "-";
