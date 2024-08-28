@@ -39,6 +39,22 @@ namespace IONET.Core.Model
                 }
         }
 
+        public List<string> GetSkinnedBoneList()
+        {
+            List<string> bones = new List<string>();
+            foreach (var m in Meshes)
+            {
+                foreach (var vertex in m.Vertices)
+                {
+                    foreach (var env in vertex.Envelope.Weights)
+                    {
+                         if (!string.IsNullOrEmpty(env.BoneName))
+                            bones.Add(env.BoneName);
+                    }
+                }
+            }
+            return bones.Distinct().ToList();
+        }
 
         /// <summary>
         /// 

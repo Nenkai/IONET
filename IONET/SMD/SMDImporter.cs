@@ -1,8 +1,10 @@
 ﻿using IONET.Core;
+using IONET.Core.Animation;
 using IONET.Core.Model;
 using IONET.Core.Skeleton;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace IONET.SMD
@@ -51,6 +53,9 @@ namespace IONET.SMD
 
             IOModel model = new IOModel();
             scene.Models.Add(model);
+
+            IOAnimation animation = new IOAnimation();
+            scene.Animations.Add(animation);
 
             using (FileStream stream = new FileStream(filePath, FileMode.Open))
             using (StreamReader r = new StreamReader(stream))
@@ -114,6 +119,35 @@ namespace IONET.SMD
                                     idxToBone[index].Translation = new System.Numerics.Vector3(float.Parse(args[1]), float.Parse(args[2]), float.Parse(args[3]));
                                     idxToBone[index].RotationEuler = new System.Numerics.Vector3(float.Parse(args[4]), float.Parse(args[5]), float.Parse(args[6]));
                                 }
+
+                                //search and create an animation group if not present
+                                var anim_group = animation.Groups.FirstOrDefault(x => x.Name == idxToBone[index].Name);
+                                if (anim_group == null)
+                                {
+                                    anim_group = new IOAnimation() { Name = idxToBone[index].Name };
+                                    animation.Groups.Add(anim_group);   
+                                }
+
+                                void AddTrack(IOAnimationTrackType type, float v)
+                                {
+                                    var anim_track = anim_group.Tracks.FirstOrDefault(x => x.ChannelType == type);
+                                    if (anim_track == null)
+                                    {
+                                        anim_track = new IOAnimationTrack()
+                                        {
+                                            ChannelType = type,
+                                        };
+                                        anim_group.Tracks.Add(anim_track);
+                                    }
+                                    if (!anim_track.KeyFrames.Any(x => x.Frame == time))
+                                        anim_track.KeyFrames.Add(new IOKeyFrame() { Frame = time, Value = v, });
+                                }
+                                AddTrack(IOAnimationTrackType.PositionX, float.Parse(args[1]));
+                                AddTrack(IOAnimationTrackType.PositionY, float.Parse(args[2]));
+                                AddTrack(IOAnimationTrackType.PositionZ, float.Parse(args[3]));
+                                AddTrack(IOAnimationTrackType.RotationEulerX, float.Parse(args[4]));
+                                AddTrack(IOAnimationTrackType.RotationEulerY, float.Parse(args[5]));
+                                AddTrack(IOAnimationTrackType.RotationEulerZ, float.Parse(args[6]));
                             }
                             break;
                         case "triangles":

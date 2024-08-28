@@ -18,8 +18,7 @@ namespace IONET.Collada.Core.Scene
 		public string Name;				
 
 		[XmlAttribute("type")]
-		[System.ComponentModel.DefaultValueAttribute(IONET.Collada.Enums.Node_Type.NODE)]
-		public IONET.Collada.Enums.Node_Type Type;				
+		public IONET.Collada.Enums.Node_Type Type = Enums.Node_Type.NODE;				
 
 		[XmlAttribute("layer")]
 		public string Layer;				
@@ -30,11 +29,11 @@ namespace IONET.Collada.Core.Scene
 		[XmlElement(ElementName = "matrix")]
 		public IONET.Collada.Core.Transform.Matrix[] Matrix;
 
-		[XmlElement(ElementName = "rotate")]
-		public IONET.Collada.Core.Transform.Rotate[] Rotate;
+        [XmlElement(ElementName = "scale")]
+        public IONET.Collada.Core.Transform.Scale[] Scale;
 
-		[XmlElement(ElementName = "scale")]
-		public IONET.Collada.Core.Transform.Scale[] Scale;
+        [XmlElement(ElementName = "rotate")]
+		public IONET.Collada.Core.Transform.Rotate[] Rotate;
 
 		[XmlElement(ElementName = "skew")]
 		public IONET.Collada.Core.Transform.Skew[] Skew;
