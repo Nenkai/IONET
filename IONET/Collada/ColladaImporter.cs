@@ -57,7 +57,7 @@ namespace IONET.Collada
             // load material library's to scene
             if (_collada.Library_Materials != null)
             {
-                foreach(var mat in _collada.Library_Materials.Material)
+                foreach (var mat in _collada.Library_Materials.Material)
                     scene.Materials.Add(LoadMaterial(mat));
             }
 
@@ -108,8 +108,10 @@ namespace IONET.Collada
             if (_collada.Asset != null && _collada.Asset.Up_Axis == "Z_UP")
             {
                 var matrix = Matrix4x4.CreateRotationX(IONET.Core.IOMath.MathExt.DegToRad(-90));
-                foreach (var model in scene.Models) {
-                    foreach (var mesh in model.Meshes) {
+                foreach (var model in scene.Models)
+                {
+                    foreach (var mesh in model.Meshes)
+                    {
                         mesh.TransformVertices(matrix);
                     }
                 }
@@ -155,8 +157,8 @@ namespace IONET.Collada
         {
             jointIDs = new List<string>();
 
-            if(n.Instance_Controller != null)
-               foreach(var c in n.Instance_Controller)
+            if (n.Instance_Controller != null)
+                foreach (var c in n.Instance_Controller)
                     if (c.Skeleton != null)
                         foreach (var s in c.Skeleton)
                             jointIDs.Add(s.Value.Substring(1, s.Value.Length - 1));
@@ -230,7 +232,7 @@ namespace IONET.Collada
                         else
                             throw new Exception();
                     }
-                   
+
                     return values;
                 }
 
@@ -403,7 +405,7 @@ namespace IONET.Collada
 
                 if (n.Rotate != null && n.Rotate.Length > 0)
                 {
-                    foreach(var r in n.Rotate)
+                    foreach (var r in n.Rotate)
                     {
                         var val = r.GetValues();
                         switch (r.sID)
@@ -454,7 +456,8 @@ namespace IONET.Collada
                     bone.Mesh = geom;
 
                     //Bind materials
-                    if (g.Bind_Material?.Length > 0) {
+                    if (g.Bind_Material?.Length > 0)
+                    {
 
                         foreach (Instance_Material_Geometry materialGeometry in g.Bind_Material[0].Technique_Common.Instance_Material)
                         {
@@ -483,7 +486,8 @@ namespace IONET.Collada
                     if (c.Bind_Material?.Length > 0)
                     {
                         var materialInstance = c.Bind_Material[0].Technique_Common.Instance_Material[0];
-                        foreach (var poly in geom.Polygons) {
+                        foreach (var poly in geom.Polygons)
+                        {
                             poly.MaterialName = materialInstance.Target.Replace("#", "");
                         }
                     }
@@ -554,7 +558,7 @@ namespace IONET.Collada
                         switch (input.Semantic)
                         {
                             case Input_Semantic.JOINT:
-                                foreach(var jointInput in con.Skin.Joints.Input)
+                                foreach (var jointInput in con.Skin.Joints.Input)
                                 {
                                     switch (jointInput.Semantic)
                                     {
@@ -595,7 +599,7 @@ namespace IONET.Collada
 
 
             // bind shape
-            if(con.Skin.Bind_Shape_Matrix != null)
+            if (con.Skin.Bind_Shape_Matrix != null)
             {
                 var m = con.Skin.Bind_Shape_Matrix.GetValues();
                 var t = new Matrix4x4(
@@ -633,7 +637,7 @@ namespace IONET.Collada
                 Name = n.Name
             };
             if (mesh.Name.Contains("FBXASC"))
-                mesh.Name = mesh.Name.Split(new string[1] {"FBXASC" }, StringSplitOptions.None).FirstOrDefault();
+                mesh.Name = mesh.Name.Split(new string[1] { "FBXASC" }, StringSplitOptions.None).FirstOrDefault();
 
             // create source manager helper 
             SourceManager srcs = new SourceManager();
@@ -682,7 +686,8 @@ namespace IONET.Collada
                 foreach (var tri in geom.Mesh.Triangles)
                 {
                     var stride = tri.Input.Max(e => e.Offset) + 1;
-                    var poly = new IOPolygon() {
+                    var poly = new IOPolygon()
+                    {
                         PrimitiveType = IOPrimitive.TRIANGLE,
                         MaterialName = tri.Material
                     };
@@ -693,7 +698,7 @@ namespace IONET.Collada
                     {
                         IOVertex vertex = new IOVertex();
 
-                        for(int j = 0; j < tri.Input.Length; j++)
+                        for (int j = 0; j < tri.Input.Length; j++)
                         {
                             var input = tri.Input[j];
                             //Find smallest UV set actually used
@@ -829,15 +834,15 @@ namespace IONET.Collada
             if (effectURL == null)
                 return null;
 
-            var effect = _collada.Library_Effects.Effect.ToList().Find(e=>e.ID == ColladaHelper.SanitizeID(effectURL));
+            var effect = _collada.Library_Effects.Effect.ToList().Find(e => e.ID == ColladaHelper.SanitizeID(effectURL));
 
             IOMaterial material = new IOMaterial()
             {
                 Name = mat.ID,
                 Label = mat.Name
             };
-            
-            if(effect != null && effect.Profile_COMMON != null && effect.Profile_COMMON.Length > 0)
+
+            if (effect != null && effect.Profile_COMMON != null && effect.Profile_COMMON.Length > 0)
             {
                 var prof = effect.Profile_COMMON[0];
 
@@ -864,7 +869,7 @@ namespace IONET.Collada
 
                     if (phong.Ambient != null)
                     {
-                        if(ReadEffectColorType(prof, phong.Ambient, out Vector4 color, out IOTexture texture))
+                        if (ReadEffectColorType(prof, phong.Ambient, out Vector4 color, out IOTexture texture))
                             material.AmbientColor = color;
 
                         if (texture != null)
@@ -992,7 +997,7 @@ namespace IONET.Collada
                 if (c.Length == 4)
                     color = new Vector4(c[0], c[1], c[2], c[3]);
                 if (c.Length == 3)
-                    color = new Vector4(c[0], c[1], c[2],  1.0f);
+                    color = new Vector4(c[0], c[1], c[2], 1.0f);
             }
 
             if (type.Texture != null)

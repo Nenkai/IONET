@@ -54,7 +54,7 @@ namespace IONET.Core
         {
             Dictionary<string, string> nameToName = new Dictionary<string, string>();
 
-            foreach(var mat in Materials)
+            foreach (var mat in Materials)
             {
                 var sanatize = Regex.Replace(mat.Name.Trim(), @"\s+", "_").Replace("#", "");
                 nameToName.Add(mat.Name, sanatize);
@@ -108,7 +108,7 @@ namespace IONET.Core
         public void PrintNodeHierachy()
         {
             foreach (var n in this.Nodes)
-                if (n.Parent  == null)
+                if (n.Parent == null)
                     PrintNode(n);
         }
 
@@ -120,7 +120,7 @@ namespace IONET.Core
                 Console.WriteLine($"{ind}Light {parent.Name}");
             else if (parent.Camera != null)
                 Console.WriteLine($"{ind}Camera {parent.Name}");
-            else 
+            else
                 Console.WriteLine($"{ind}Node {parent.Name}");
 
             string inc = ind + "-";
