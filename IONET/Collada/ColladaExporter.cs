@@ -328,7 +328,7 @@ namespace IONET.Collada
         {
             List<Node> nodes = new List<Node>();
 
-            List<string> bones = model.Meshes.SelectMany(x => x.Vertices.SelectMany(x => x.Envelope.Weights.Select(x => x.BoneName))).ToList();
+            List<string> bones = model.Meshes.SelectMany(x => x.Vertices.SelectMany(z => z.Envelope.Weights.Select(y => y.BoneName))).ToList();
 
             foreach (var n in scene.Nodes)
                 if (n.Parent == null)

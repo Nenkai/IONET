@@ -71,13 +71,15 @@ namespace IONET.Core
         public void LoadSkeletonFromNodes(IOModel model)
         {
             foreach (var node in this.Nodes)
-                LoadSkeletonFromNodes(node, null, Matrix4x4.Identity, this, model, model.GetSkinnedBoneList());
+                if (node.Parent == null)
+                    LoadSkeletonFromNodes(node, null, Matrix4x4.Identity, this, model, model.GetSkinnedBoneList());
         }
 
         public void LoadSkeletonFromNodes(IOModel model, List<string> skeletonIds)
         {
             foreach (var node in this.Nodes)
-                LoadSkeletonFromNodes(node, null, Matrix4x4.Identity, this, model, skeletonIds);
+                if (node.Parent == null)
+                    LoadSkeletonFromNodes(node, null, Matrix4x4.Identity, this, model, skeletonIds);
         }
 
         public void LoadSkeletonFromNodes(IONode bone, IONode parent, Matrix4x4 parentMatrix, IOScene scene, IOModel model, List<string> skeletonIds)

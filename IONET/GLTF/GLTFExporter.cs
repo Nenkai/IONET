@@ -136,10 +136,15 @@ namespace IONET.GLTF
                     Vector4[] boneIndices = new Vector4[iomesh.Vertices.Count];
                     Vector4[] boneWeights = new Vector4[iomesh.Vertices.Count];
 
+                    bool hasSecondSet = iomesh.Vertices.Any(x => x.Envelope.Weights.Count > 4);
+
+                    Vector4[] boneIndicesSet2 = new Vector4[hasSecondSet ? iomesh.Vertices.Count : 0];
+                    Vector4[] boneWeightsSet2 = new Vector4[hasSecondSet ? iomesh.Vertices.Count : 0];
+
                     for (int i = 0; i < iomesh.Vertices.Count; i++)
                     {
-                        float[] weights = new float[4];
-                        int[] indices = new int[4];
+                        float[] weights = new float[hasSecondSet ? 8 : 4];
+                        int[] indices = new int[hasSecondSet ? 8 : 4];
 
                         var vertex = iomesh.Vertices[i];
                         for (int j = 0; j < vertex.Envelope.Weights.Count; j++)
@@ -150,9 +155,23 @@ namespace IONET.GLTF
 
                         boneWeights[i] = new Vector4(weights[0], weights[1], weights[2], weights[3]);
                         boneIndices[i] = new Vector4(indices[0], indices[1], indices[2], indices[3]);
+
+                        if (hasSecondSet)
+                        {
+                            boneWeightsSet2[i] = new Vector4(weights[4], weights[5], weights[6], weights[7]);
+                            boneIndicesSet2[i] = new Vector4(indices[4], indices[5], indices[6], indices[7]);
+                        }
                     }
+
                     SetVertexData(prim, "WEIGHTS_0", boneWeights.ToList());
                     SetVertexDataBoneIndices(prim, "JOINTS_0", boneIndices.ToList());
+
+                    if (hasSecondSet)
+                    {
+                        SetVertexData(prim, "WEIGHTS_1", boneWeightsSet2.ToList());
+                        SetVertexDataBoneIndices(prim, "JOINTS_1", boneIndicesSet2.ToList());
+                    }
+
 
                     //Indices
                     SetIndexData(prim, iopoly.Indicies);

@@ -378,7 +378,7 @@ namespace IONET.Collada
             scene.Nodes.Add(bone);
 
             // load matrix
-            if (n.Matrix != null && n.Matrix.Length >= 0)
+            if (n.Matrix != null && n.Matrix.Length >= 0 && n.Matrix[0].Value_As_String != null)
                 bone.LocalTransform = n.Matrix[0].ToMatrix();
             else
             {
@@ -488,6 +488,20 @@ namespace IONET.Collada
                         }
                     }
                 }
+            }
+
+            // detect skeleton
+            if (((n.Type == Node_Type.JOINT) ||
+                (n.Instance_Camera == null &&
+                n.Instance_Controller == null &&
+                n.Instance_Geometry == null &&
+                n.Instance_Light == null &&
+                n.Instance_Node == null &&
+                parent == null &&
+                n.node != null &&
+                n.node.Length > 0)))
+            {
+                bone.IsJoint = true;
             }
 
             // complete
