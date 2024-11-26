@@ -299,6 +299,7 @@ namespace IONET.GLTF
                     iopoly.Indicies.Add(tri.B);
                     iopoly.Indicies.Add(tri.C);
                 }
+
                 //tex coord channel list
                 List<IList<Vector2>> texCoords = new List<IList<Vector2>>();
                 foreach (var accessor in prim.VertexAccessors)
@@ -306,6 +307,7 @@ namespace IONET.GLTF
                     if (accessor.Key.StartsWith("TEXCOORD_"))
                         texCoords.Add(accessor.Value.AsVector2Array());
                 }
+
                 //color channel list
                 List<IList<Vector4>> colorList = new List<IList<Vector4>>();
                 foreach (var accessor in prim.VertexAccessors)
@@ -313,6 +315,7 @@ namespace IONET.GLTF
                     if (accessor.Key.StartsWith("COLOR_"))
                         colorList.Add(accessor.Value.AsColorArray());
                 }
+
                 //weight list
                 List<IList<Vector4>> weightList = new List<IList<Vector4>>();
                 foreach (var accessor in prim.VertexAccessors)
@@ -320,6 +323,7 @@ namespace IONET.GLTF
                     if (accessor.Key.StartsWith("WEIGHTS_"))
                         weightList.Add(accessor.Value.AsVector4Array());
                 }
+
                 //bone index list
                 List<IList<Vector4>> boneIndexList = new List<IList<Vector4>>();
                 foreach (var accessor in prim.VertexAccessors)
@@ -327,29 +331,39 @@ namespace IONET.GLTF
                     if (accessor.Key.StartsWith("JOINTS_"))
                         boneIndexList.Add(accessor.Value.AsVector4Array());
                 }
+
                 //positions
                 var pos = prim.GetVertexAccessor("POSITION").AsVector3Array();
+
                 //normals
                 var nrm = prim.GetVertexAccessor("NORMAL")?.AsVector3Array();
+                iomesh.HasNormals = nrm?.Count > 0;
+
                 //tangents
                 var tangent = prim.GetVertexAccessor("TANGENT")?.AsVector4Array();
+                iomesh.HasTangents = tangent?.Count > 0;
 
                 //Init a vertex list
                 IOVertex[] vertices = new IOVertex[pos.Count];
                 for (int i = 0; i < vertices.Length; i++)
                 {
                     vertices[i] = new IOVertex();
+
                     //positions
                     vertices[i].Position = pos[i];
+
                     //normals
                     if (nrm?.Count > 0) vertices[i].Normal = nrm[i];
+
                     //tex coord channel list
                     for (int j = 0; j < texCoords?.Count; j++)
                         vertices[i].SetUV(texCoords[j][i].X, texCoords[j][i].Y, j);
+
                     //vertex color channel list
                     for (int j = 0; j < colorList?.Count; j++)
                         vertices[i].SetColor(
                             colorList[j][i].X, colorList[j][i].Y, colorList[j][i].Z, colorList[j][i].W, j);
+
                     //tangents
                     if (tangent?.Count > 0) 
                         vertices[i].Tangent = new Vector3(tangent[i].X, tangent[i].Y, tangent[i].Z);
