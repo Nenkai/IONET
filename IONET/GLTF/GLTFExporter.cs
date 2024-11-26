@@ -114,6 +114,9 @@ namespace IONET.GLTF
                     node.Skin = skin;
 
                 //Todo vertex list should be created by polygon indices and re indexed
+                bool hasJoints0 = false;
+                bool hasJoints1 = false;
+
                 foreach (var iopoly in iomesh.Polygons)
                 {
                     var prim = node.Mesh.CreatePrimitive();
@@ -198,13 +201,6 @@ namespace IONET.GLTF
                         SetVertexData(prim, "WEIGHTS_1", boneWeights1.ToList());
                         SetVertexDataBoneIndices(prim, "JOINTS_1", boneIndices1.ToList());
                     }
-
-                    if (hasSecondSet)
-                    {
-                        SetVertexData(prim, "WEIGHTS_1", boneWeightsSet2.ToList());
-                        SetVertexDataBoneIndices(prim, "JOINTS_1", boneIndicesSet2.ToList());
-                    }
-
 
                     //Indices
                     SetIndexData(prim, iopoly.Indicies);
