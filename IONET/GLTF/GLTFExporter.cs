@@ -146,8 +146,6 @@ namespace IONET.GLTF
                     Vector4[] boneIndices1 = new Vector4[iomesh.Vertices.Count];
                     Vector4[] boneWeights1 = new Vector4[iomesh.Vertices.Count];
 
-                    bool hasJoints0 = false;
-                    bool hasJoints1 = false;
                     for (int i = 0; i < iomesh.Vertices.Count; i++)
                     {
                         List<float> weights = new List<float>(8);
@@ -200,6 +198,13 @@ namespace IONET.GLTF
                         SetVertexData(prim, "WEIGHTS_1", boneWeights1.ToList());
                         SetVertexDataBoneIndices(prim, "JOINTS_1", boneIndices1.ToList());
                     }
+
+                    if (hasSecondSet)
+                    {
+                        SetVertexData(prim, "WEIGHTS_1", boneWeightsSet2.ToList());
+                        SetVertexDataBoneIndices(prim, "JOINTS_1", boneIndicesSet2.ToList());
+                    }
+
 
                     //Indices
                     SetIndexData(prim, iopoly.Indicies);

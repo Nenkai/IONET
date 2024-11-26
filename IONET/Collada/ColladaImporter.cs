@@ -380,7 +380,7 @@ namespace IONET.Collada
             scene.Nodes.Add(bone);
 
             // load matrix
-            if (n.Matrix != null && n.Matrix.Length >= 0)
+            if (n.Matrix != null && n.Matrix.Length >= 0 && n.Matrix[0].Value_As_String != null)
                 bone.LocalTransform = n.Matrix[0].ToMatrix();
             else
             {

@@ -31,6 +31,13 @@ namespace IONET.Core.Model
 
         public Vector4 ReflectiveColor { get; set; } = new Vector4(1, 1, 1, 1);
         public IOTexture ReflectiveMap { get; set; }
+        public IOTexture AmbientOcclusionMap { get; set; }
+
+        //PBR
+        public IOTexture MetalnessMap { get; set; }
+        public IOTexture RoughnessMap { get; set; }
+        public IOTexture ShininessMap { get; set; }
+
 
         public float Reflectivity { get; set; } = 1;
         public float Shininess { get; set; } = 20;
