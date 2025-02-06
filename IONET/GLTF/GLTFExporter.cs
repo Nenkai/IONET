@@ -125,17 +125,28 @@ namespace IONET.GLTF
                     node.Skin = skin;
 
                 //Todo vertex list should be created by polygon indices and re indexed
+                bool hasJoints0 = false;
+                bool hasJoints1 = false;
+
                 foreach (var iopoly in iomesh.Polygons)
                 {
                     var prim = node.Mesh.CreatePrimitive();
+
                     SetVertexData(prim, "POSITION", iomesh.Vertices.Select(x => x.Position).ToList());
-                    SetVertexData(prim, "NORMAL", iomesh.Vertices.Select(x => x.Normal).ToList());
+
+                    if (iomesh.HasNormals)
+                        SetVertexData(prim, "NORMAL", iomesh.Vertices.Select(x => x.Normal).ToList());
+
+                    if (iomesh.HasTangents)
+                       SetVertexData(prim, "TANGENT", iomesh.Vertices.Select(X => new Vector4(X.Tangent, 1f)).ToList());
+
                     //uv set
                     for (int i = 0; i  < 8; i++)
                     {
                         if (iomesh.HasUVSet(i))
                             SetVertexData(prim, $"TEXCOORD_{i}", iomesh.Vertices.Select(x => x.UVs[i]).ToList());
                     }
+
                     //color set
                     for (int i = 0; i < 4; i++)
                     {
@@ -144,33 +155,49 @@ namespace IONET.GLTF
                     }
 
                     //Bones and weights
-                    Vector4[] boneIndices = new Vector4[iomesh.Vertices.Count];
-                    Vector4[] boneWeights = new Vector4[iomesh.Vertices.Count];
-
-                    bool hasSecondSet = iomesh.Vertices.Any(x => x.Envelope.Weights.Count > 4);
-
-                    Vector4[] boneIndicesSet2 = new Vector4[hasSecondSet ? iomesh.Vertices.Count : 0];
-                    Vector4[] boneWeightsSet2 = new Vector4[hasSecondSet ? iomesh.Vertices.Count : 0];
+                    Vector4[] boneIndices0 = new Vector4[iomesh.Vertices.Count];
+                    Vector4[] boneWeights0 = new Vector4[iomesh.Vertices.Count];
+                    Vector4[] boneIndices1 = new Vector4[iomesh.Vertices.Count];
+                    Vector4[] boneWeights1 = new Vector4[iomesh.Vertices.Count];
 
                     for (int i = 0; i < iomesh.Vertices.Count; i++)
                     {
-                        float[] weights = new float[hasSecondSet ? 8 : 4];
-                        int[] indices = new int[hasSecondSet ? 8 : 4];
+                        List<float> weights = new List<float>(8);
+                        List<int> indices = new List<int>(8);
 
                         var vertex = iomesh.Vertices[i];
                         for (int j = 0; j < vertex.Envelope.Weights.Count; j++)
                         {
-                            weights[j] = vertex.Envelope.Weights[j].Weight;
-                            indices[j] = GetBoneIndex(node.Skin, vertex.Envelope.Weights[j].BoneName);
+                            indices.Add(GetBoneIndex(node.Skin, vertex.Envelope.Weights[j].BoneName));
+                            weights.Add(vertex.Envelope.Weights[j].Weight);
                         }
 
-                        boneWeights[i] = new Vector4(weights[0], weights[1], weights[2], weights[3]);
-                        boneIndices[i] = new Vector4(indices[0], indices[1], indices[2], indices[3]);
-
-                        if (hasSecondSet)
+                        if (indices.Count > 0)
                         {
-                            boneWeightsSet2[i] = new Vector4(weights[4], weights[5], weights[6], weights[7]);
-                            boneIndicesSet2[i] = new Vector4(indices[4], indices[5], indices[6], indices[7]);
+                            boneIndices0[i] = new Vector4(indices.Count >= 1 ? indices[0] : 0,
+                                indices.Count >= 2 ? indices[1] : 0,
+                                indices.Count >= 3 ? indices[2] : 0,
+                                indices.Count >= 4 ? indices[3] : 0);
+
+                            boneWeights0[i] = new Vector4(weights.Count >= 1 ? weights[0] : 0,
+                                weights.Count >= 2 ? weights[1] : 0,
+                                weights.Count >= 3 ? weights[2] : 0,
+                                weights.Count >= 4 ? weights[3] : 0);
+                            hasJoints0 = true;
+
+                            if (indices.Count >= 5)
+                            {
+                                boneIndices1[i] = new Vector4(indices.Count >= 5 ? indices[4] : 0,
+                                    indices.Count >= 6 ? indices[5] : 0,
+                                    indices.Count >= 7 ? indices[6] : 0,
+                                    indices.Count >= 8 ? indices[7] : 0);
+
+                                boneWeights1[i] = new Vector4(weights.Count >= 5 ? weights[4] : 0,
+                                    weights.Count >= 6 ? weights[5] : 0,
+                                    weights.Count >= 7 ? weights[6] : 0,
+                                    weights.Count >= 8 ? weights[7] : 0);
+                                hasJoints1 = true;
+                            }
                         }
                     }
 
@@ -179,12 +206,17 @@ namespace IONET.GLTF
                         SetVertexData(prim, "WEIGHTS_0", boneWeights.ToList());
                         SetVertexDataBoneIndices(prim, "JOINTS_0", boneIndices.ToList());
                     }
-                    if (hasSecondSet)
+                    if (hasJoints0)
                     {
-                        SetVertexData(prim, "WEIGHTS_1", boneWeightsSet2.ToList());
-                        SetVertexDataBoneIndices(prim, "JOINTS_1", boneIndicesSet2.ToList());
+                        SetVertexData(prim, "WEIGHTS_0", boneWeights0.ToList());
+                        SetVertexDataBoneIndices(prim, "JOINTS_0", boneIndices0.ToList());
                     }
 
+                    if (hasJoints1)
+                    {
+                        SetVertexData(prim, "WEIGHTS_1", boneWeights1.ToList());
+                        SetVertexDataBoneIndices(prim, "JOINTS_1", boneIndices1.ToList());
+                    }
 
                     //Indices
                     SetIndexData(prim, iopoly.Indicies);
