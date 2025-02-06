@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v5.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v5.0": {
+      "AssimpNetter/5.4.3.0": {
+        "runtime": {
+          "AssimpNetter.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "AssimpNetter/5.4.3.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

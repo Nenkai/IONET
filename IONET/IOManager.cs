@@ -12,6 +12,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Globalization;
 using IONET.GLTF;
+using IONET.AssimpLib;
+using IONET.Assimp;
 
 namespace IONET
 {
@@ -22,7 +24,8 @@ namespace IONET
         /// </summary>
         private static ISceneLoader[] SceneLoaders = new
             ISceneLoader[]
-        {
+        {            
+            new AssimpImport(),
             new ColladaImporter(),
             new SMDImporter(),
             new OBJImporter(),
@@ -37,6 +40,7 @@ namespace IONET
         private static ISceneExporter[] SceneExporters = new
             ISceneExporter[]
         {
+            new AssimpExport(),
             new ColladaExporter(),
             new SMDExporter(),
             new OBJExporter(),
@@ -101,6 +105,15 @@ namespace IONET
             foreach (var l in SceneLoaders)
                 if (l.Verify(filePath))
                 {
+                    // Disable optimizing for Assimp as that is done automatically in library
+                    // Assimp is much better and faster doing this
+                    if (l is AssimpImport)
+                    {
+                        settings.Optimize = false;
+                        // Also skip generating tangents/binormals as assimp does this
+                        settings.GenerateTangentsAndBinormals = false;
+                    }
+
                     var scene = l.GetScene(filePath);
                     System.Console.WriteLine("Loaded scene!");
 
@@ -281,7 +294,9 @@ namespace IONET
                         }
 
                         l.ExportScene(scene, filePath, settings);
-                        break;
+
+                        Thread.CurrentThread.CurrentCulture = current;
+                        return;
                     }
 
             Thread.CurrentThread.CurrentCulture = current;

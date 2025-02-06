@@ -17,6 +17,7 @@ using SharpGLTF.Schema2;
 using SharpGLTF.Memory;
 using IONET.Collada.B_Rep.Surfaces;
 using IONET.Core.Animation;
+using SharpGLTF.Materials;
 
 namespace IONET.GLTF
 {
@@ -59,8 +60,17 @@ namespace IONET.GLTF
 
             foreach (var iomaterial in ioscene.Materials)
             {
-                var mat = modelRoot.CreateMaterial(iomaterial.Name);
                 //todo set texture maps
+                var material = new MaterialBuilder(iomaterial.Name);
+                if (iomaterial.DiffuseMap != null)
+                {
+                    material.WithChannelImage(KnownChannel.BaseColor, iomaterial.DiffuseMap.FilePath);
+                }
+                if (iomaterial.NormalMap != null)
+                {
+                    material.WithChannelImage(KnownChannel.Normal, iomaterial.NormalMap.FilePath);
+                }
+                var mat = modelRoot.CreateMaterial(material);
             }
 
             List<Node> Joints = new List<Node>();
@@ -90,7 +100,8 @@ namespace IONET.GLTF
             }
 
             var skin = modelRoot.CreateSkin($"Armature");
-            skin.Skeleton = Joints[0];
+            if (Joints.Count > 0)
+                skin.Skeleton = Joints[0];
 
             foreach (var ioanim in ioscene.Animations)
             {
@@ -163,9 +174,11 @@ namespace IONET.GLTF
                         }
                     }
 
-                    SetVertexData(prim, "WEIGHTS_0", boneWeights.ToList());
-                    SetVertexDataBoneIndices(prim, "JOINTS_0", boneIndices.ToList());
-
+                    if (iomesh.HasEnvelopes() )
+                    {
+                        SetVertexData(prim, "WEIGHTS_0", boneWeights.ToList());
+                        SetVertexDataBoneIndices(prim, "JOINTS_0", boneIndices.ToList());
+                    }
                     if (hasSecondSet)
                     {
                         SetVertexData(prim, "WEIGHTS_1", boneWeightsSet2.ToList());
@@ -183,7 +196,8 @@ namespace IONET.GLTF
             }
 
             //bind joints last after all the mesh data is set
-            skin.BindJoints(Joints.ToArray());
+            if (Joints.Count > 0)
+                skin.BindJoints(Joints.ToArray());
 
             //Preview nodes
             void ViewNode(Node node, string level)
