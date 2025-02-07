@@ -201,11 +201,6 @@ namespace IONET.GLTF
                         }
                     }
 
-                    if (iomesh.HasEnvelopes() )
-                    {
-                        SetVertexData(prim, "WEIGHTS_0", boneWeights.ToList());
-                        SetVertexDataBoneIndices(prim, "JOINTS_0", boneIndices.ToList());
-                    }
                     if (hasJoints0)
                     {
                         SetVertexData(prim, "WEIGHTS_0", boneWeights0.ToList());
