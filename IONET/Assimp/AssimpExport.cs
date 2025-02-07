@@ -9,6 +9,7 @@ using Assimp;
 using System.Numerics;
 using System.Linq;
 using IONET.Assimp;
+using IONET.Core.Skeleton;
 
 namespace IONET.AssimpLib
 {
@@ -61,12 +62,12 @@ namespace IONET.AssimpLib
 
             if (model.Skeleton.RootBones.Count == 1)
             {
-                foreach (IONode node in model.Skeleton.RootBones)
+                foreach (IOBone node in model.Skeleton.RootBones)
                     scene.RootNode.Children.Add(SaveBone(node));
             }
             else
             {
-                foreach (IONode node in model.Skeleton.RootBones)
+                foreach (IOBone node in model.Skeleton.RootBones)
                     skeleton.Children.Add(SaveBone(node));
 
                 if (skeleton.HasChildren)
@@ -74,14 +75,14 @@ namespace IONET.AssimpLib
             }
         }
 
-        private Node SaveBone(IONode ionode)
+        private Node SaveBone(IOBone ionode)
         {
             Node assimpNode = new Node(ionode.Name)
             {
                 Transform = ionode.LocalTransform.FromNumerics(),
             };
 
-            foreach (IONode child in ionode.Children)
+            foreach (IOBone child in ionode.Children)
                 assimpNode.Children.Add(SaveBone(child));
 
             return assimpNode;
