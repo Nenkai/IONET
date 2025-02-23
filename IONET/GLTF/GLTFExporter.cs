@@ -99,9 +99,12 @@ namespace IONET.GLTF
                 return 0;
             }
 
-            var skin = modelRoot.CreateSkin($"Armature");
+            Skin skin = null;
             if (Joints.Count > 0)
+            {
+                skin = modelRoot.CreateSkin($"Armature");
                 skin.Skeleton = Joints[0];
+            }
 
             foreach (var ioanim in ioscene.Animations)
             {
