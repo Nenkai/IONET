@@ -99,7 +99,7 @@ namespace IONET.GLTF
                 return 0;
             }
 
-            Skin skin = null;
+            Skin? skin = null;
             if (Joints.Count > 0)
             {
                 skin = modelRoot.CreateSkin($"Armature");
@@ -117,7 +117,7 @@ namespace IONET.GLTF
                     continue;
 
                 var poly = iomesh.Polygons.FirstOrDefault();
-                
+
                 //Create node
                 Node node = sceneRoot.CreateNode($"{iomesh.Name}");
                 //Create mesh
@@ -141,10 +141,10 @@ namespace IONET.GLTF
                         SetVertexData(prim, "NORMAL", iomesh.Vertices.Select(x => x.Normal).ToList());
 
                     if (iomesh.HasTangents)
-                       SetVertexData(prim, "TANGENT", iomesh.Vertices.Select(X => new Vector4(X.Tangent, 1f)).ToList());
+                        SetVertexData(prim, "TANGENT", iomesh.Vertices.Select(X => new Vector4(X.Tangent, 1f)).ToList());
 
                     //uv set
-                    for (int i = 0; i  < 8; i++)
+                    for (int i = 0; i < 8; i++)
                     {
                         if (iomesh.HasUVSet(i))
                             SetVertexData(prim, $"TEXCOORD_{i}", iomesh.Vertices.Select(x => x.UVs[i]).ToList());
@@ -169,10 +169,13 @@ namespace IONET.GLTF
                         List<int> indices = new List<int>(8);
 
                         var vertex = iomesh.Vertices[i];
-                        for (int j = 0; j < vertex.Envelope.Weights.Count; j++)
+                        if (node.Skin != null)
                         {
-                            indices.Add(GetBoneIndex(node.Skin, vertex.Envelope.Weights[j].BoneName));
-                            weights.Add(vertex.Envelope.Weights[j].Weight);
+                            for (int j = 0; j < vertex.Envelope.Weights.Count; j++)
+                            {
+                                indices.Add(GetBoneIndex(node.Skin, vertex.Envelope.Weights[j].BoneName));
+                                weights.Add(vertex.Envelope.Weights[j].Weight);
+                            }
                         }
 
                         if (indices.Count > 0)
@@ -227,7 +230,7 @@ namespace IONET.GLTF
 
             //bind joints last after all the mesh data is set
             if (Joints.Count > 0)
-                skin.BindJoints(Joints.ToArray());
+                skin?.BindJoints(Joints.ToArray());
 
             //Preview nodes
             void ViewNode(Node node, string level)
@@ -352,7 +355,7 @@ namespace IONET.GLTF
 
             var accessor = root.CreateAccessor();
             primitive.SetVertexAccessor(attribute, accessor);
-             
+
             accessor.SetVertexData(view, 0, vecs.Count, DimensionType.VEC4, EncodingType.UNSIGNED_SHORT, false);
         }
     }
