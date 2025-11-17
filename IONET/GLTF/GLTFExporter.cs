@@ -259,27 +259,136 @@ namespace IONET.GLTF
                 if (node == null)
                     continue;
 
+                // Collect all unique times across all tracks for this bone
+                var allTimes = new SortedSet<float>();
+
+                // Temporary storage for individual components
+                Dictionary<float, float> posX = new Dictionary<float, float>();
+                Dictionary<float, float> posY = new Dictionary<float, float>();
+                Dictionary<float, float> posZ = new Dictionary<float, float>();
+
+                Dictionary<float, float> quatX = new Dictionary<float, float>();
+                Dictionary<float, float> quatY = new Dictionary<float, float>();
+                Dictionary<float, float> quatZ = new Dictionary<float, float>();
+                Dictionary<float, float> quatW = new Dictionary<float, float>();
+
+                Dictionary<float, float> scaleX = new Dictionary<float, float>();
+                Dictionary<float, float> scaleY = new Dictionary<float, float>();
+                Dictionary<float, float> scaleZ = new Dictionary<float, float>();
+
+                // Collect keyframe data by track type
+                foreach (var track in group.Tracks)
+                {
+                    foreach (var keyFrame in track.KeyFrames)
+                    {
+                        float time = keyFrame.Frame / 30.0f; // Convert frame to seconds (assuming 30 fps)
+                        allTimes.Add(time);
+
+                        switch (track.ChannelType)
+                        {
+                            case IOAnimationTrackType.PositionX:
+                                posX[time] = keyFrame.ValueF32;
+                                break;
+                            case IOAnimationTrackType.PositionY:
+                                posY[time] = keyFrame.ValueF32;
+                                break;
+                            case IOAnimationTrackType.PositionZ:
+                                posZ[time] = keyFrame.ValueF32;
+                                break;
+
+                            case IOAnimationTrackType.QuatX:
+                                quatX[time] = keyFrame.ValueF32;
+                                break;
+                            case IOAnimationTrackType.QuatY:
+                                quatY[time] = keyFrame.ValueF32;
+                                break;
+                            case IOAnimationTrackType.QuatZ:
+                                quatZ[time] = keyFrame.ValueF32;
+                                break;
+                            case IOAnimationTrackType.QuatW:
+                                quatW[time] = keyFrame.ValueF32;
+                                break;
+
+                            case IOAnimationTrackType.ScaleX:
+                                scaleX[time] = keyFrame.ValueF32;
+                                break;
+                            case IOAnimationTrackType.ScaleY:
+                                scaleY[time] = keyFrame.ValueF32;
+                                break;
+                            case IOAnimationTrackType.ScaleZ:
+                                scaleZ[time] = keyFrame.ValueF32;
+                                break;
+                        }
+                    }
+                }
+
+                // Build complete transform data for each unique time
                 Dictionary<float, Vector3> translation = new Dictionary<float, Vector3>();
                 Dictionary<float, Quaternion> rotation = new Dictionary<float, Quaternion>();
                 Dictionary<float, Vector3> scale = new Dictionary<float, Vector3>();
 
+                bool hasPosition = posX.Count > 0 || posY.Count > 0 || posZ.Count > 0;
+                bool hasQuaternion = quatX.Count > 0 || quatY.Count > 0 || quatZ.Count > 0 || quatW.Count > 0;
+                bool hasScale = scaleX.Count > 0 || scaleY.Count > 0 || scaleZ.Count > 0;
 
-                foreach (var track in group.Tracks)
+                // Build position data for all times that have position keys
+                if (hasPosition)
                 {
-                    switch (track.KeyFrames.Count)
+                    foreach (var time in allTimes)
                     {
-
+                        if (posX.ContainsKey(time) || posY.ContainsKey(time) || posZ.ContainsKey(time))
+                        {
+                            translation[time] = new Vector3(
+                                posX.ContainsKey(time) ? posX[time] : 0,
+                                posY.ContainsKey(time) ? posY[time] : 0,
+                                posZ.ContainsKey(time) ? posZ[time] : 0
+                            );
+                        }
                     }
                 }
 
+                // Build rotation data directly from quaternion
+                if (hasQuaternion)
+                {
+                    foreach (var time in allTimes)
+                    {
+                        if (quatX.ContainsKey(time) || quatY.ContainsKey(time) ||
+                            quatZ.ContainsKey(time) || quatW.ContainsKey(time))
+                        {
+                            rotation[time] = new Quaternion(
+                                quatX.ContainsKey(time) ? quatX[time] : 0,
+                                quatY.ContainsKey(time) ? quatY[time] : 0,
+                                quatZ.ContainsKey(time) ? quatZ[time] : 0,
+                                quatW.ContainsKey(time) ? quatW[time] : 1
+                            );
+                        }
+                    }
+                }
+
+                // Build scale data
+                if (hasScale)
+                {
+                    foreach (var time in allTimes)
+                    {
+                        if (scaleX.ContainsKey(time) || scaleY.ContainsKey(time) || scaleZ.ContainsKey(time))
+                        {
+                            scale[time] = new Vector3(
+                                scaleX.ContainsKey(time) ? scaleX[time] : 1,
+                                scaleY.ContainsKey(time) ? scaleY[time] : 1,
+                                scaleZ.ContainsKey(time) ? scaleZ[time] : 1
+                            );
+                        }
+                    }
+                }
+
+                // Create animation channels only if there's data
                 if (translation.Count > 0)
                     anim.CreateTranslationChannel(node, translation);
                 if (rotation.Count > 0)
                     anim.CreateRotationChannel(node, rotation);
                 if (scale.Count > 0)
-                    anim.CreateScaleChannel(node, translation);
+                    anim.CreateScaleChannel(node, scale);
             }
-
         }
 
         private void SetIndexData(MeshPrimitive primitive, List<int> indices)
