@@ -56,8 +56,9 @@ namespace IONET.GLTF
         /// 
         /// </summary>
         /// <param name="filePath"></param>
+        /// <param name="settings"></param>
         /// <returns></returns>
-        public IOScene GetScene(string filePath)
+        public IOScene GetScene(string filePath, ImportSettings settings)
         {
             // generate a new scene
             IOScene scene = new IOScene();
@@ -72,7 +73,7 @@ namespace IONET.GLTF
             //Animation handling
             foreach (var anim in model.LogicalAnimations)
             {
-                float rate = 24;
+                float rate = settings?.FrameRate ?? 24;
                 float frameCount = anim.Duration * rate;
 
                 IOAnimation ioanim = new IOAnimation();

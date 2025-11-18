@@ -22,8 +22,9 @@ namespace IONET.Assimp
         /// 
         /// </summary>
         /// <param name="filePath"></param>
+        /// <param name="settings"></param>
         /// <returns></returns>
-        public IOScene GetScene(string filePath)
+        public IOScene GetScene(string filePath, ImportSettings settings)
         {
             PostProcessSteps postProcess = PostProcessSteps.Triangulate;
             postProcess |= PostProcessSteps.OptimizeMeshes;

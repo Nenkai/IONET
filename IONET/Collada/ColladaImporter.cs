@@ -41,8 +41,9 @@ namespace IONET.Collada
         /// 
         /// </summary>
         /// <param name="filePath"></param>
+        /// <param name="settings"></param>
         /// <returns></returns>
-        public IOScene GetScene(string filePath)
+        public IOScene GetScene(string filePath, ImportSettings settings)
         {
             // generate a new scene
             IOScene scene = new IOScene();

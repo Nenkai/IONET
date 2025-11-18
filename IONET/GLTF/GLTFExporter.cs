@@ -108,7 +108,7 @@ namespace IONET.GLTF
 
             foreach (var ioanim in ioscene.Animations)
             {
-                SetAnimationData(modelRoot, ioanim, Joints);
+                SetAnimationData(modelRoot, ioanim, Joints, settings);
             }
 
             foreach (var iomesh in iomodel.Meshes)
@@ -249,7 +249,7 @@ namespace IONET.GLTF
             });
         }
 
-        private void SetAnimationData(ModelRoot modelRoot, IOAnimation ioanim, List<Node> nodes)
+        private void SetAnimationData(ModelRoot modelRoot, IOAnimation ioanim, List<Node> nodes, ExportSettings settings)
         {
             var anim = modelRoot.CreateAnimation(ioanim.Name);
 
@@ -281,7 +281,7 @@ namespace IONET.GLTF
                 {
                     foreach (var keyFrame in track.KeyFrames)
                     {
-                        float time = keyFrame.Frame / 30.0f; // Convert frame to seconds (assuming 30 fps)
+                        float time = keyFrame.Frame / settings.FrameRate; // Convert frame to seconds using settings frame rate
                         allTimes.Add(time);
 
                         switch (track.ChannelType)
