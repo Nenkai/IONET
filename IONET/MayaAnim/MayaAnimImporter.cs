@@ -11,11 +11,12 @@ namespace IONET.MayaAnim
         /// 
         /// </summary>
         /// <param name="filePath"></param>
+        /// <param name="settings"></param>
         /// <returns></returns>
-        public IOScene GetScene(string filePath)
+        public IOScene GetScene(string filePath, ImportSettings settings)
         {
             IOScene scene = new IOScene();
-            scene.Animations.Add(MayaAnim.ImportAnimation(filePath, new ImportSettings()));
+            scene.Animations.Add(MayaAnim.ImportAnimation(filePath, settings));
             return scene;
         }
 

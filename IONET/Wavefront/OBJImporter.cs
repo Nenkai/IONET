@@ -23,8 +23,9 @@ namespace IONET.Wavefront
         /// 
         /// </summary>
         /// <param name="filePath"></param>
+        /// <param name="settings"></param>
         /// <returns></returns>
-        public IOScene GetScene(string filePath)
+        public IOScene GetScene(string filePath, ImportSettings settings)
         {
             var en = System.Globalization.CultureInfo.GetCultureInfo("en-US");
 

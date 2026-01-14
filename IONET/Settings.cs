@@ -59,6 +59,12 @@ namespace IONET
         /// </summary>
         [Category("Materials"), DisplayName("Split Meshes by Materials"), Description("Splits meshes with multiple materials")]
         public bool SplitMeshMaterials { get; set; } = true;
+
+        /// <summary>
+        /// Controls the frame rate of the imported animation
+        /// </summary>
+        [Category("Animation"), DisplayName("Frame Rate"), Description("Controls the frame rate of the imported animation")]
+        public float FrameRate { get; set; } = 24.0f;
     }
 
     public class ExportSettings
