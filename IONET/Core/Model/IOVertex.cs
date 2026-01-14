@@ -12,10 +12,12 @@ namespace IONET.Core.Model
         public Vector3 Tangent = Vector3.UnitX;
         public Vector3 Binormal = Vector3.UnitX;
 
-        public List<Vector2> UVs { get; internal set; } = new List<Vector2>();
-        public List<Vector4> Colors { get; internal set; } = new List<Vector4>();
+        public List<Vector2> UVs { get; internal set; } = [];
+        public List<Vector4> Colors { get; internal set; } = [];
 
         public IOEnvelope Envelope { get; internal set; } = new IOEnvelope();
+
+        public Dictionary<string, object> CustomAttributes = [];
 
         /// <summary>
         /// Transforms vertic by matrix
@@ -27,6 +29,16 @@ namespace IONET.Core.Model
             Normal = Vector3.Normalize(Vector3.TransformNormal(Normal, transform));
             Tangent = Vector3.Normalize(Vector3.TransformNormal(Tangent, transform));
             Binormal = Vector3.Normalize(Vector3.TransformNormal(Binormal, transform));
+        }
+
+        /// <summary>
+        /// Intended for GLTF
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        public void SetCustom(string name, object value)
+        {
+            CustomAttributes.TryAdd(name, value);
         }
 
         /// <summary>

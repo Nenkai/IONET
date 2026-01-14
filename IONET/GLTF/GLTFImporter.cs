@@ -344,6 +344,14 @@ namespace IONET.GLTF
                 var tangent = prim.GetVertexAccessor("TANGENT")?.AsVector4Array();
                 iomesh.HasTangents = tangent?.Count > 0;
 
+                var customAccessors = prim.VertexAccessors.Where(e =>
+                {
+                    string attrName = e.Key;
+
+                    return attrName != "POSITION" && attrName != "NORMAL" && attrName != "TANGENT" &&
+                        !attrName.StartsWith("TEXCOORD_") && !attrName.StartsWith("COLOR_") && !attrName.StartsWith("JOINTS_") && !attrName.StartsWith("WEIGHTS_");
+                });
+
                 //Init a vertex list
                 IOVertex[] vertices = new IOVertex[pos.Count];
                 for (int i = 0; i < vertices.Length; i++)
@@ -404,7 +412,30 @@ namespace IONET.GLTF
                             Weight = 1f,
                         });
                     }
+
+                    foreach (var customAccessor in customAccessors)
+                    {
+                        if (customAccessor.Value.Format.Dimensions == DimensionType.VEC4)
+                        {
+                            var arr = customAccessor.Value.AsVector4Array();
+                            vertices[i].SetCustom(customAccessor.Key, arr[i]);
+                        }
+                        else if (customAccessor.Value.Format.Dimensions == DimensionType.VEC3)
+                        {
+                            var arr = customAccessor.Value.AsVector3Array();
+                            vertices[i].SetCustom(customAccessor.Key, arr[i]);
+                        }
+                        else if (customAccessor.Value.Format.Dimensions == DimensionType.VEC2)
+                        {
+                            var arr = customAccessor.Value.AsVector2Array();
+                            vertices[i].SetCustom(customAccessor.Key, arr[i]);
+                        }
+                        else
+                            throw new NotSupportedException($"Custom attribute {customAccessor.Key} with format dimensions {customAccessor.Value.Format.Dimensions} not supported");
+                    }
                 }
+
+
                 iomesh.Vertices.AddRange(vertices);
 
                 //transform mesh

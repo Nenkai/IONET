@@ -225,6 +225,31 @@ namespace IONET.GLTF
                     //Material
                     prim.Material = modelRoot.LogicalMaterials.FirstOrDefault(
                         x => x.Name == iopoly.MaterialName);
+
+                    if (iomesh.Vertices.Count > 0)
+                    {
+                        foreach (var custom in iomesh.Vertices[0].CustomAttributes)
+                        {
+                            if (custom.Value is Vector4)
+                            {
+                                var vertices = iomesh.Vertices.Select(e => (Vector4)e.CustomAttributes[custom.Key]);
+                                SetVertexData(prim, custom.Key, vertices.ToList());
+                            }
+                            else if (custom.Value is Vector3)
+                            {
+                                var vertices = iomesh.Vertices.Select(e => (Vector3)e.CustomAttributes[custom.Key]);
+                                SetVertexData(prim, custom.Key, vertices.ToList());
+                            }
+                            else if (custom.Value is Vector2)
+                            {
+                                var vertices = iomesh.Vertices.Select(e => (Vector2)e.CustomAttributes[custom.Key]);
+                                SetVertexData(prim, custom.Key, vertices.ToList());
+
+                            }
+                            else
+                                throw new NotSupportedException($"Custom attribute {custom.Key} with value type {custom.Value.GetType().Name} not supported");
+                        }
+                    }
                 }
             }
 
@@ -410,6 +435,8 @@ namespace IONET.GLTF
 
         private void SetVertexData(MeshPrimitive primitive, string attribute, List<Vector3> vecs)
         {
+            string attrName = SanitizeAttributeName(attribute);
+
             var root = primitive.LogicalParent.LogicalParent;
 
             // create a vertex buffer and fill it
@@ -418,13 +445,15 @@ namespace IONET.GLTF
             array.Fill(vecs);
 
             var accessor = root.CreateAccessor();
-            primitive.SetVertexAccessor(attribute, accessor);
+            primitive.SetVertexAccessor(attrName, accessor);
 
             accessor.SetVertexData(view, 0, vecs.Count, DimensionType.VEC3, EncodingType.FLOAT, false);
         }
 
         private void SetVertexData(MeshPrimitive primitive, string attribute, List<Vector2> vecs)
         {
+            string attrName = SanitizeAttributeName(attribute);
+
             var root = primitive.LogicalParent.LogicalParent;
 
             // create a vertex buffer and fill it
@@ -433,13 +462,15 @@ namespace IONET.GLTF
             array.Fill(vecs);
 
             var accessor = root.CreateAccessor();
-            primitive.SetVertexAccessor(attribute, accessor);
+            primitive.SetVertexAccessor(attrName, accessor);
 
             accessor.SetVertexData(view, 0, vecs.Count, DimensionType.VEC2, EncodingType.FLOAT, false);
         }
 
         private void SetVertexData(MeshPrimitive primitive, string attribute, List<Vector4> vecs)
         {
+            string attrName = SanitizeAttributeName(attribute);
+
             var root = primitive.LogicalParent.LogicalParent;
 
             // create a vertex buffer and fill it
@@ -448,9 +479,22 @@ namespace IONET.GLTF
             array.Fill(vecs);
 
             var accessor = root.CreateAccessor();
-            primitive.SetVertexAccessor(attribute, accessor);
+            primitive.SetVertexAccessor(attrName, accessor);
 
             accessor.SetVertexData(view, 0, vecs.Count, DimensionType.VEC4, EncodingType.FLOAT, false);
+        }
+
+        private static string SanitizeAttributeName(string attribute)
+        {
+            string attrName;
+            if (attribute == "POSITION" || attribute == "NORMAL" || attribute == "TANGENT" ||
+                attribute.StartsWith("TEXCOORD_") || attribute.StartsWith("COLOR_") || attribute.StartsWith("JOINTS_") || attribute.StartsWith("WEIGHTS_"))
+                attrName = attribute;
+            else if (!attribute.StartsWith('_'))
+                attrName = $"_{attribute}";
+            else
+                attrName = attribute;
+            return attrName;
         }
 
         private void SetVertexDataBoneIndices(MeshPrimitive primitive, string attribute, List<Vector4> vecs)
